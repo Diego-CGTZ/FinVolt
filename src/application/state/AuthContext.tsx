@@ -77,6 +77,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       // Build the redirect URI that Supabase will send the user back to
       const redirectTo = makeRedirectUri({ scheme: 'finvolt', path: 'auth/callback' });
+      
+      // TEMPORARY: Alert the exact redirect URI so the user can configure Supabase
+      console.log('EXACT REDIRECT URI:', redirectTo);
 
       // Get the Google OAuth URL from Supabase
       const { url } = await repo.signInWithGoogle(redirectTo);
