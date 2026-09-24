@@ -15,7 +15,7 @@ CREATE TYPE account_type AS ENUM (
 -- 2. Crear tabla accounts
 CREATE TABLE IF NOT EXISTS public.accounts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   type account_type NOT NULL,
   currency TEXT NOT NULL DEFAULT 'MXN',
