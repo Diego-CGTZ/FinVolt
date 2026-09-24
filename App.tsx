@@ -1,11 +1,12 @@
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { AuthProvider, useAuth } from './src/application/state/AuthContext';
+import { AccountsProvider } from './src/application/state/AccountsContext';
 import { AuthScreen } from './src/presentation/screens/AuthScreen';
-import { HomeScreen } from './src/presentation/screens/HomeScreen';
+import { AccountsScreen } from './src/presentation/screens/AccountsScreen';
 
 /**
- * Root navigator — switches between AuthScreen and HomeScreen
+ * Root navigator — switches between AuthScreen and AccountsScreen
  * based on the current auth state from AuthContext.
  *
  * Navigation (US-navigation) will replace this simple switch
@@ -23,7 +24,12 @@ function RootNavigator() {
   }
 
   if (authState.status === 'authenticated') {
-    return <HomeScreen />;
+    // We render AccountsScreen for now to satisfy US-006 until Expo Router is set up
+    return (
+      <AccountsProvider>
+        <AccountsScreen />
+      </AccountsProvider>
+    );
   }
 
   return <AuthScreen />;
