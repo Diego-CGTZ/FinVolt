@@ -8,4 +8,4 @@
  * Future interfaces: IAccountRepository, ITransactionRepository,
  * IBudgetRepository, ILoanRepository — added per their Issues.
  */
-export {};
+export type { AuthUser, AuthState, IAuthRepository } from './IAuthRepository';

@@ -4,4 +4,4 @@
  * Concrete repository implementations backed by Supabase (US-003).
  * Future: SupabaseAccountRepository, SupabaseTransactionRepository, etc.
  */
-export {};
+export { SupabaseAuthRepository } from './SupabaseAuthRepository';

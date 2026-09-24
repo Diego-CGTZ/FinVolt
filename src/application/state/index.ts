@@ -2,10 +2,8 @@
  * APPLICATION — State barrel
  *
  * React Context providers and global state management.
- * We use Context + custom hooks as the primary state mechanism,
- * keeping this layer framework-agnostic enough to swap if needed.
+ * We use Context + custom hooks as the primary state mechanism.
  *
- * Future: AuthContext (US-004), AccountsContext (US-006),
- * BudgetContext (US-046).
+ * Future: AccountsContext (US-006), BudgetContext (US-046).
  */
-export {};
+export { AuthProvider, useAuth } from './AuthContext';

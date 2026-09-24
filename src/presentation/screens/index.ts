@@ -2,7 +2,7 @@
  * PRESENTATION — Screens barrel
  *
  * Each file corresponds to a navigable screen.
- * Future: HomeScreen (US-017), AccountsScreen (US-006),
- * AddExpenseScreen (US-009), BudgetScreen (US-048).
+ * Future: AccountsScreen (US-006), AddExpenseScreen (US-009), BudgetScreen (US-048).
  */
-export {};
+export { AuthScreen } from './AuthScreen';
+export { HomeScreen } from './HomeScreen';
