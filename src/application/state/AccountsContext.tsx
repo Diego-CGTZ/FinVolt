@@ -17,7 +17,7 @@ type AccountsState = {
 const AccountsContext = createContext<AccountsState | null>(null);
 
 export const AccountsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { session } = useAuth();
+  const { authState } = useAuth();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -27,7 +27,7 @@ export const AccountsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const repository = new SupabaseAccountRepository();
 
   const loadAccounts = useCallback(async () => {
-    if (session.status !== 'authenticated') return;
+    if (authState.status !== 'authenticated') return;
 
     setIsLoading(true);
     setError(null);
@@ -39,7 +39,7 @@ export const AccountsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } finally {
       setIsLoading(false);
     }
-  }, [session.status]);
+  }, [authState.status]);
 
   const createAccount = async (
     accountData: Omit<Account, 'id' | 'createdAt' | 'updatedAt' | 'userId'>,
@@ -65,8 +65,21 @@ export const AccountsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // Load accounts automatically when authenticated
   useEffect(() => {
-    loadAccounts();
-  }, [loadAccounts]);
+    let mounted = true;
+    if (authState.status === 'authenticated') {
+      repository
+        .getAccounts()
+        .then((data) => {
+          if (mounted) setAccounts(data);
+        })
+        .catch((err) => {
+          if (mounted) setError(err.message || 'Error loading accounts');
+        });
+    }
+    return () => {
+      mounted = false;
+    };
+  }, [authState.status]);
 
   return (
     <AccountsContext.Provider

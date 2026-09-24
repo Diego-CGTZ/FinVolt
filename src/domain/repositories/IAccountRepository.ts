@@ -1,4 +1,4 @@
-import type { Account, AccountType } from '../models/Account';
+import type { Account } from '../models/Account';
 
 export interface IAccountRepository {
   /**

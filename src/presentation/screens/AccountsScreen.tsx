@@ -29,7 +29,7 @@ export const AccountsScreen = () => {
   // Form state
   const [name, setName] = useState('');
   const [type, setType] = useState<AccountType>('CHECKING');
-  const [currency, setCurrency] = useState('MXN');
+  const [currency] = useState('MXN');
   const [initialBalance, setInitialBalance] = useState('0');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
