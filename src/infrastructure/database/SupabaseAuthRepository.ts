@@ -13,6 +13,7 @@ export class SupabaseAuthRepository implements IAuthRepository {
 
     if (error) throw new Error(error.message);
     if (!data.user) throw new Error('Sign up failed: no user returned');
+    if (!data.session) throw new Error('Please check your email to confirm your account.');
 
     return { id: data.user.id, email: data.user.email ?? email };
   }

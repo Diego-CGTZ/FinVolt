@@ -36,13 +36,8 @@ const repo = new SupabaseAuthRepository();
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [authState, setAuthState] = useState<AuthState>({ status: 'loading' });
 
-  // Resolve initial session on mount and listen to auth changes
+  // Listen to auth changes (including the INITIAL_SESSION after AsyncStorage loads)
   useEffect(() => {
-    repo.getSession().then((user) => {
-      setAuthState(user ? { status: 'authenticated', user } : { status: 'unauthenticated' });
-    });
-
-    // Listen for token refreshes, sign-outs from other devices, etc.
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -59,14 +54,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = useCallback(async (email: string, password: string) => {
     setAuthState({ status: 'loading' });
-    const user = await repo.signUp(email, password);
-    setAuthState({ status: 'authenticated', user });
+    try {
+      await repo.signUp(email, password);
+    } catch (err) {
+      setAuthState({ status: 'unauthenticated' });
+      throw err;
+    }
   }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {
     setAuthState({ status: 'loading' });
-    const user = await repo.signIn(email, password);
-    setAuthState({ status: 'authenticated', user });
+    try {
+      await repo.signIn(email, password);
+    } catch (err) {
+      setAuthState({ status: 'unauthenticated' });
+      throw err;
+    }
   }, []);
 
   const signInWithGoogle = useCallback(async () => {
@@ -88,8 +91,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Parse tokens from the redirect URL and create a session
-      const user = await repo.handleOAuthCallback(result.url);
-      setAuthState({ status: 'authenticated', user });
+      await repo.handleOAuthCallback(result.url);
+      // state is handled by onAuthStateChange
     } catch (err) {
       setAuthState({ status: 'unauthenticated' });
       throw err;
