@@ -15,7 +15,7 @@ import { useAuth } from '../../application/state/AuthContext';
 type Mode = 'login' | 'signup';
 
 export function AuthScreen() {
-  const { signIn, signUp, authState } = useAuth();
+  const { signIn, signUp, signInWithGoogle, authState } = useAuth();
   const [mode, setMode] = useState<Mode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -39,6 +39,15 @@ export function AuthScreen() {
     }
   }
 
+  async function handleGoogle() {
+    try {
+      await signInWithGoogle();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error al iniciar con Google';
+      Alert.alert('Error', message);
+    }
+  }
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -48,6 +57,25 @@ export function AuthScreen() {
         <Text style={styles.logo}>⚡ FinVolt</Text>
         <Text style={styles.subtitle}>{mode === 'login' ? 'Inicia sesión' : 'Crea tu cuenta'}</Text>
 
+        {/* Google Sign-In */}
+        <TouchableOpacity
+          id="auth-google"
+          style={[styles.googleButton, isLoading && styles.buttonDisabled]}
+          onPress={handleGoogle}
+          disabled={isLoading}
+        >
+          <Text style={styles.googleIcon}>G</Text>
+          <Text style={styles.googleText}>Continuar con Google</Text>
+        </TouchableOpacity>
+
+        {/* Divider */}
+        <View style={styles.divider}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>o</Text>
+          <View style={styles.dividerLine} />
+        </View>
+
+        {/* Email & Password */}
         <TextInput
           id="auth-email"
           style={styles.input}
@@ -125,7 +153,40 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#94a3b8',
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: 4,
+  },
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    paddingVertical: 13,
+    gap: 10,
+  },
+  googleIcon: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#4285F4',
+  },
+  googleText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1e293b',
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#334155',
+  },
+  dividerText: {
+    color: '#64748b',
+    fontSize: 13,
   },
   input: {
     backgroundColor: '#0f172a',

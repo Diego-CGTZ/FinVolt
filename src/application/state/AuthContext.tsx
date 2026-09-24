@@ -1,7 +1,12 @@
+import * as WebBrowser from 'expo-web-browser';
+import { makeRedirectUri } from 'expo-auth-session';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { supabase } from '../../infrastructure/api/supabaseClient';
 import { SupabaseAuthRepository } from '../../infrastructure/database/SupabaseAuthRepository';
 import type { AuthState, AuthUser } from '../../domain/repositories/IAuthRepository';
+
+// Required for iOS to properly close the browser after OAuth
+WebBrowser.maybeCompleteAuthSession();
 
 // ---------------------------------------------------------------------------
 // Context types
@@ -12,6 +17,7 @@ type AuthContextValue = {
   user: AuthUser | null;
   signUp: (email: string, password: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -32,12 +38,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Resolve initial session on mount and listen to auth changes
   useEffect(() => {
-    // Load existing session
     repo.getSession().then((user) => {
       setAuthState(user ? { status: 'authenticated', user } : { status: 'unauthenticated' });
     });
 
-    // Listen to Supabase auth state changes (token refresh, sign-out from another tab, etc.)
+    // Listen for token refreshes, sign-outs from other devices, etc.
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -64,6 +69,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAuthState({ status: 'authenticated', user });
   }, []);
 
+  const signInWithGoogle = useCallback(async () => {
+    setAuthState({ status: 'loading' });
+    try {
+      // Build the redirect URI that Supabase will send the user back to
+      const redirectTo = makeRedirectUri({ scheme: 'finvolt', path: 'auth/callback' });
+
+      // Get the Google OAuth URL from Supabase
+      const { url } = await repo.signInWithGoogle(redirectTo);
+
+      // Open the browser — on success it returns the redirect URL with tokens
+      const result = await WebBrowser.openAuthSessionAsync(url, redirectTo);
+
+      if (result.type !== 'success') {
+        // User cancelled — go back to unauthenticated without error
+        setAuthState({ status: 'unauthenticated' });
+        return;
+      }
+
+      // Parse tokens from the redirect URL and create a session
+      const user = await repo.handleOAuthCallback(result.url);
+      setAuthState({ status: 'authenticated', user });
+    } catch (err) {
+      setAuthState({ status: 'unauthenticated' });
+      throw err;
+    }
+  }, []);
+
   const signOut = useCallback(async () => {
     setAuthState({ status: 'loading' });
     await repo.signOut();
@@ -73,7 +105,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const user = authState.status === 'authenticated' ? authState.user : null;
 
   return (
-    <AuthContext.Provider value={{ authState, user, signUp, signIn, signOut }}>
+    <AuthContext.Provider value={{ authState, user, signUp, signIn, signInWithGoogle, signOut }}>
       {children}
     </AuthContext.Provider>
   );
