@@ -2,6 +2,7 @@
  * INFRASTRUCTURE — Database barrel
  *
  * Concrete repository implementations backed by Supabase (US-003).
- * Future: SupabaseAccountRepository, SupabaseTransactionRepository, etc.
+ * Future: SupabaseTransactionRepository, etc.
  */
 export { SupabaseAuthRepository } from './SupabaseAuthRepository';
+export { SupabaseAccountRepository } from './SupabaseAccountRepository';
