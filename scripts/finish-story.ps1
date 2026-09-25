@@ -16,34 +16,36 @@ param(
 )
 
 Set-StrictMode -Version Latest
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 
 # ── Constantes del proyecto ──────────────────────────────────────────────────
-$REPO        = "Diego-CGTZ/FinVolt"
-$PROJECT_NUM = 1
-$OWNER       = "Diego-CGTZ"
+$REPO            = "Diego-CGTZ/FinVolt"
+$PROJECT_NUM     = 1
+$OWNER           = "Diego-CGTZ"
 $STATUS_FIELD_ID = "PVTSSF_lAHOB42opc4BhtJ7zhgn6_o"
+$STATUS_IN_REVIEW = "f4685eee"
 
 # ── 1. Verificar que estamos en la rama correcta ──────────────────────────────
 $currentBranch = git rev-parse --abbrev-ref HEAD
-if ($currentBranch -notlike "*$StoryId*") {
-    Write-Warning "La rama actual es '$currentBranch', que no coincide con $StoryId."
-    $confirm = Read-Host "¿Continuar de todas formas? (s/N)"
+if ($currentBranch -notlike ("*" + $StoryId + "*")) {
+    Write-Warning ("La rama actual es '{0}', que no coincide con {1}." -f $currentBranch, $StoryId)
+    $confirm = Read-Host "Continuar de todas formas? (s/N)"
     if ($confirm -ne "s") { exit 1 }
 }
 
 # ── 2. Buscar el issue ───────────────────────────────────────────────────────
 Write-Host ""
-Write-Host "🔍 Buscando issue $StoryId..." -ForegroundColor Cyan
+Write-Host ("Buscando issue {0}..." -f $StoryId) -ForegroundColor Cyan
 
 $issueJson = gh issue list `
     --repo $REPO `
-    --search "[$StoryId]" `
+    --search ("[" + $StoryId + "]") `
     --json number,title,url `
     --limit 1 | ConvertFrom-Json
 
 if (-not $issueJson -or $issueJson.Count -eq 0) {
-    Write-Error "No se encontró issue [$StoryId]."
+    Write-Error ("No se encontro issue [{0}]." -f $StoryId)
+    exit 1
 }
 
 $issue        = $issueJson[0]
@@ -51,79 +53,79 @@ $issueNumber  = $issue.number
 $issueTitle   = $issue.title
 $issueUrl     = $issue.url
 
-Write-Host "  Issue #$issueNumber: $issueTitle" -ForegroundColor Green
+Write-Host ("  Issue #{0}: {1}" -f $issueNumber, $issueTitle) -ForegroundColor Green
 
 # ── 3. Push de la rama ────────────────────────────────────────────────────────
 Write-Host ""
-Write-Host "⬆️  Haciendo push de '$currentBranch'..." -ForegroundColor Cyan
+Write-Host ("Haciendo push de '{0}'..." -f $currentBranch) -ForegroundColor Cyan
 git push -u origin $currentBranch
 
-# ── 4. Crear el Pull Request ──────────────────────────────────────────────────
+# ── 4. Crear o detectar el Pull Request ──────────────────────────────────────
 Write-Host ""
-Write-Host "🔀 Creando Pull Request..." -ForegroundColor Cyan
+Write-Host "Creando Pull Request..." -ForegroundColor Cyan
 
-$prBody = @"
-## Closes #$issueNumber
-
-**Historia:** $issueTitle
-
-### ¿Qué cambia?
-<!-- Describe brevemente los cambios -->
-
-### Checklist de pruebas
-<!-- Marca lo que verificaste antes de hacer merge -->
-- [ ] Funciona en Android
-- [ ] No hay errores de TypeScript (`npx tsc --noEmit`)
-- [ ] Lint limpio (`npx expo lint`)
-- [ ] Criterios de aceptación de la historia cumplidos
-"@
-
-$prUrl = gh pr create `
+# Detectar si ya existe un PR para esta rama
+$existingPr = gh pr list `
     --repo $REPO `
-    --base main `
     --head $currentBranch `
-    --title "[$StoryId] $($issueTitle -replace '^\[.*?\]\s*', '')" `
-    --body $prBody
+    --json url `
+    --limit 1 | ConvertFrom-Json
 
-Write-Host "  PR creado: $prUrl" -ForegroundColor Green
+if ($existingPr -and $existingPr.Count -gt 0) {
+    $prUrl = $existingPr[0].url
+    Write-Host ("  PR ya existia: {0}" -f $prUrl) -ForegroundColor Yellow
+} else {
+    $cleanTitle = $issueTitle -replace '^\[.*?\]\s*', ''
+    $prTitle    = ("[{0}] {1}" -f $StoryId, $cleanTitle)
+
+    $prBody = ("## Closes #{0}`n`n" +
+               "**Historia:** {1}`n`n" +
+               "### Que cambia?`n" +
+               "<!-- Describe brevemente los cambios -->`n`n" +
+               "### Checklist de pruebas`n" +
+               "- [ ] Funciona en Android`n" +
+               "- [ ] No hay errores de TypeScript (npx tsc --noEmit)`n" +
+               "- [ ] Lint limpio (npx expo lint)`n" +
+               "- [ ] Criterios de aceptacion de la historia cumplidos`n") -f $issueNumber, $issueTitle
+
+    $prUrl = gh pr create `
+        --repo $REPO `
+        --base main `
+        --head $currentBranch `
+        --title $prTitle `
+        --body $prBody
+
+    Write-Host ("  PR creado: {0}" -f $prUrl) -ForegroundColor Green
+}
 
 # ── 5. Mover el issue a "In Review" ──────────────────────────────────────────
 Write-Host ""
-Write-Host "📋 Actualizando estado del Project a 'In Review'..." -ForegroundColor Cyan
+Write-Host "Actualizando estado del Project a 'In Review'..." -ForegroundColor Cyan
 
 $itemId = gh project item-list $PROJECT_NUM `
     --owner $OWNER `
     --format json `
-    --jq ".items[] | select(.content.number == $issueNumber) | .id" 2>$null
+    --jq (".items[] | select(.content.number == " + $issueNumber + ") | .id") 2>$null
 
 if ($itemId) {
-    $inReviewId = gh project field-list $PROJECT_NUM `
-        --owner $OWNER `
-        --format json `
-        --jq '.fields[] | select(.name == "Status") | .options[] | select(.name | test("Review|review")) | .id' 2>$null
-
-    if ($inReviewId) {
-        gh project item-edit `
-            --project-id PVT_kwHOB42opc4BhtJ7 `
-            --id $itemId `
-            --field-id $STATUS_FIELD_ID `
-            --single-select-option-id $inReviewId | Out-Null
-        Write-Host "  ✅ Status → In Review" -ForegroundColor Green
-    } else {
-        Write-Host "  ⚠️  No se encontró 'In Review'. Actualiza manualmente." -ForegroundColor Yellow
-    }
+    gh project item-edit `
+        --project-id PVT_kwHOB42opc4BhtJ7 `
+        --id $itemId `
+        --field-id $STATUS_FIELD_ID `
+        --single-select-option-id $STATUS_IN_REVIEW | Out-Null
+    Write-Host "  Status -> In Review" -ForegroundColor Green
 } else {
-    Write-Host "  ⚠️  Issue no encontrado en el Project." -ForegroundColor Yellow
+    Write-Host "  AVISO: Issue no encontrado en el Project. Actualiza manualmente." -ForegroundColor Yellow
 }
 
 # ── Resumen ───────────────────────────────────────────────────────────────────
 Write-Host ""
-Write-Host "════════════════════════════════════════" -ForegroundColor Cyan
-Write-Host "  ✅ Historia lista para revisión: $StoryId" -ForegroundColor Green
-Write-Host "  🔀 PR: $prUrl" -ForegroundColor Green
-Write-Host "  🔗 Issue: $issueUrl" -ForegroundColor Green
-Write-Host "════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host ("  Historia lista para revision: {0}" -f $StoryId) -ForegroundColor Green
+Write-Host ("  PR: {0}" -f $prUrl) -ForegroundColor Green
+Write-Host ("  Issue: {0}" -f $issueUrl) -ForegroundColor Green
+Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Prueba la app. Cuando todo funcione, ejecuta:" -ForegroundColor DarkGray
-Write-Host "  .\scripts\merge-story.ps1 -StoryId $StoryId" -ForegroundColor White
+Write-Host ("  .\scripts\merge-story.ps1 -StoryId {0}" -f $StoryId) -ForegroundColor White
 Write-Host ""
