@@ -8,3 +8,5 @@
  */
 export { AuthProvider, useAuth } from './AuthContext';
 export { AccountsProvider, useAccounts } from './AccountsContext';
+// US-007
+export { CategoriesProvider, useCategories } from './CategoriesContext';

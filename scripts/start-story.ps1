@@ -1,10 +1,6 @@
 ##############################################################################
 # start-story.ps1
 # Uso: .\scripts\start-story.ps1 -StoryId US-009
-#
-# Qué hace:
-#   1. Crea la rama feature/<ID>-<slug> desde main (o la activa si ya existe)
-#   2. Mueve el issue correspondiente en el GitHub Project a "In Progress"
 ##############################################################################
 
 param(
@@ -15,50 +11,50 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-# ── Constantes del proyecto ──────────────────────────────────────────────────
-$REPO        = "Diego-CGTZ/FinVolt"
-$PROJECT_NUM = 1
-$OWNER       = "Diego-CGTZ"
-$STATUS_FIELD_ID = "PVTSSF_lAHOB42opc4BhtJ7zhgn6_o"   # campo "Status"
+# ── Constantes ────────────────────────────────────────────────────────────────
+$REPO            = "Diego-CGTZ/FinVolt"
+$PROJECT_NUM     = 1
+$OWNER           = "Diego-CGTZ"
+$STATUS_FIELD_ID = "PVTSSF_lAHOB42opc4BhtJ7zhgn6_o"
 
-# ── Helpers ──────────────────────────────────────────────────────────────────
+# ── Helpers ───────────────────────────────────────────────────────────────────
 function Get-SlugFromIssue([string]$title) {
-    # "[US-009] Registrar gasto manual" → "registrar-gasto-manual"
     $clean = $title -replace '^\[.*?\]\s*', '' `
                     -replace '[^a-zA-Z0-9\s]', '' `
                     -replace '\s+', '-'
-    return $clean.ToLower().Substring(0, [Math]::Min(40, $clean.Length))
+    $lower = $clean.ToLower()
+    return $lower.Substring(0, [Math]::Min(40, $lower.Length))
 }
 
-# ── 1. Buscar el issue en GitHub ─────────────────────────────────────────────
+# ── 1. Buscar el issue ────────────────────────────────────────────────────────
 Write-Host ""
-Write-Host "🔍 Buscando issue $StoryId en GitHub..." -ForegroundColor Cyan
+Write-Host "Buscando issue ${StoryId} en GitHub..." -ForegroundColor Cyan
 
 $issueJson = gh issue list `
     --repo $REPO `
-    --search "[$StoryId]" `
+    --search "[${StoryId}]" `
     --json number,title,url `
     --limit 1 | ConvertFrom-Json
 
 if (-not $issueJson -or $issueJson.Count -eq 0) {
-    Write-Error "No se encontró un issue con el título [$StoryId]. ¿Ya fue importado el backlog?"
+    Write-Error "No se encontro un issue con el titulo [${StoryId}]. Ya fue importado el backlog?"
 }
 
-$issue = $issueJson[0]
+$issue       = $issueJson[0]
 $issueNumber = $issue.number
 $issueTitle  = $issue.title
 $issueUrl    = $issue.url
 
-Write-Host "  Issue #$issueNumber: $issueTitle" -ForegroundColor Green
+Write-Host ("  Issue #{0}: {1}" -f $issueNumber, $issueTitle) -ForegroundColor Green
 
-# ── 2. Construir nombre de rama ───────────────────────────────────────────────
+# ── 2. Nombre de rama ─────────────────────────────────────────────────────────
 $slug       = Get-SlugFromIssue $issueTitle
-$branchName = "feature/$StoryId-$slug"
+$branchName = "feature/${StoryId}-${slug}"
 
 Write-Host ""
-Write-Host "🌿 Rama: $branchName" -ForegroundColor Cyan
+Write-Host "Rama: ${branchName}" -ForegroundColor Cyan
 
-# ── 3. Asegurarse de estar en main actualizado ────────────────────────────────
+# ── 3. Asegurarse en main actualizado ─────────────────────────────────────────
 $currentBranch = git rev-parse --abbrev-ref HEAD
 if ($currentBranch -ne "main") {
     Write-Host "  Cambiando a main..." -ForegroundColor Yellow
@@ -76,18 +72,16 @@ if ($branchExists) {
     Write-Host "  Rama creada y activa." -ForegroundColor Green
 }
 
-# ── 5. Mover el issue a "In Progress" en el Project ──────────────────────────
+# ── 5. Mover a "In Progress" en el Project ────────────────────────────────────
 Write-Host ""
-Write-Host "📋 Actualizando estado en GitHub Project..." -ForegroundColor Cyan
+Write-Host "Actualizando GitHub Project..." -ForegroundColor Cyan
 
-# Obtener el item-id del issue dentro del proyecto
 $itemId = gh project item-list $PROJECT_NUM `
     --owner $OWNER `
     --format json `
-    --jq ".items[] | select(.content.number == $issueNumber) | .id" 2>$null
+    --jq (".items[] | select(.content.number == " + $issueNumber + ") | .id") 2>$null
 
 if ($itemId) {
-    # Obtener el option-id de "In Progress"
     $inProgressId = gh project field-list $PROJECT_NUM `
         --owner $OWNER `
         --format json `
@@ -99,26 +93,26 @@ if ($itemId) {
             --id $itemId `
             --field-id $STATUS_FIELD_ID `
             --single-select-option-id $inProgressId | Out-Null
-        Write-Host "  ✅ Status → In Progress" -ForegroundColor Green
+        Write-Host "  Status -> In Progress" -ForegroundColor Green
     } else {
-        Write-Host "  ⚠️  No se encontró la opción 'In Progress'. Actualiza el estado manualmente." -ForegroundColor Yellow
+        Write-Host "  AVISO: No se encontro 'In Progress'. Actualiza manualmente." -ForegroundColor Yellow
     }
 } else {
-    Write-Host "  ⚠️  Issue no encontrado en el Project. Agrégalo manualmente si es necesario." -ForegroundColor Yellow
+    Write-Host "  AVISO: Issue no encontrado en el Project." -ForegroundColor Yellow
 }
 
-# ── 6. Asignar el issue al usuario actual ────────────────────────────────────
+# ── 6. Asignar el issue ───────────────────────────────────────────────────────
 $me = gh api user --jq ".login"
 gh issue edit $issueNumber --repo $REPO --add-assignee $me 2>$null | Out-Null
 
 # ── Resumen ───────────────────────────────────────────────────────────────────
 Write-Host ""
-Write-Host "════════════════════════════════════════" -ForegroundColor Cyan
-Write-Host "  ✅ Historia iniciada: $StoryId" -ForegroundColor Green
-Write-Host "  🌿 Rama activa: $branchName" -ForegroundColor Green
-Write-Host "  🔗 Issue: $issueUrl" -ForegroundColor Green
-Write-Host "════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host ("  Historia iniciada: {0}" -f $StoryId) -ForegroundColor Green
+Write-Host ("  Rama activa: {0}" -f $branchName) -ForegroundColor Green
+Write-Host ("  Issue: {0}" -f $issueUrl) -ForegroundColor Green
+Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Cuando termines, ejecuta:" -ForegroundColor DarkGray
-Write-Host "  .\scripts\finish-story.ps1 -StoryId $StoryId" -ForegroundColor White
+Write-Host ("  .\scripts\finish-story.ps1 -StoryId {0}" -f $StoryId) -ForegroundColor White
 Write-Host ""

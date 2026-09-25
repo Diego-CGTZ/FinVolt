@@ -6,6 +6,6 @@
  * will be added here as their respective Issues are implemented.
  */
 
-// Placeholder: entities will be added in US-008 (Transaction),
-// US-007 (Category), US-046 (Budget), US-049 (Loan).
 export type { Account, AccountType } from './Account';
+// US-007 — Modelo de categorías
+export type { Category, CreateCategoryInput, UpdateCategoryInput } from './Category';
