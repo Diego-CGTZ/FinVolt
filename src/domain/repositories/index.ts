@@ -12,3 +12,9 @@ export type { AuthUser, AuthState, IAuthRepository } from './IAuthRepository';
 export type { IAccountRepository } from './IAccountRepository';
 // US-007 — Repositorio de categorías
 export type { ICategoryRepository } from './ICategoryRepository';
+// US-008 — Repositorio de transacciones
+export type {
+  ITransactionRepository,
+  TransactionFilters,
+  PaginationOptions,
+} from './ITransactionRepository';

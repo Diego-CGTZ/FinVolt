@@ -8,3 +8,5 @@ export { SupabaseAuthRepository } from './SupabaseAuthRepository';
 export { SupabaseAccountRepository } from './SupabaseAccountRepository';
 // US-007
 export { SupabaseCategoryRepository } from './SupabaseCategoryRepository';
+// US-008
+export { SupabaseTransactionRepository } from './SupabaseTransactionRepository';

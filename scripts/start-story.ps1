@@ -9,13 +9,14 @@ param(
 )
 
 Set-StrictMode -Version Latest
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 
 # ── Constantes ────────────────────────────────────────────────────────────────
 $REPO            = "Diego-CGTZ/FinVolt"
 $PROJECT_NUM     = 1
 $OWNER           = "Diego-CGTZ"
-$STATUS_FIELD_ID = "PVTSSF_lAHOB42opc4BhtJ7zhgn6_o"
+$STATUS_FIELD_ID      = "PVTSSF_lAHOB42opc4BhtJ7zhgn6_o"
+$STATUS_IN_PROGRESS  = "47fc9ee4"
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 function Get-SlugFromIssue([string]$title) {
@@ -82,21 +83,12 @@ $itemId = gh project item-list $PROJECT_NUM `
     --jq (".items[] | select(.content.number == " + $issueNumber + ") | .id") 2>$null
 
 if ($itemId) {
-    $inProgressId = gh project field-list $PROJECT_NUM `
-        --owner $OWNER `
-        --format json `
-        --jq '.fields[] | select(.name == "Status") | .options[] | select(.name == "In Progress") | .id' 2>$null
-
-    if ($inProgressId) {
-        gh project item-edit `
-            --project-id PVT_kwHOB42opc4BhtJ7 `
-            --id $itemId `
-            --field-id $STATUS_FIELD_ID `
-            --single-select-option-id $inProgressId | Out-Null
-        Write-Host "  Status -> In Progress" -ForegroundColor Green
-    } else {
-        Write-Host "  AVISO: No se encontro 'In Progress'. Actualiza manualmente." -ForegroundColor Yellow
-    }
+    gh project item-edit `
+        --project-id PVT_kwHOB42opc4BhtJ7 `
+        --id $itemId `
+        --field-id $STATUS_FIELD_ID `
+        --single-select-option-id $STATUS_IN_PROGRESS | Out-Null
+    Write-Host "  Status -> In Progress" -ForegroundColor Green
 } else {
     Write-Host "  AVISO: Issue no encontrado en el Project." -ForegroundColor Yellow
 }
