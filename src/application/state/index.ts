@@ -10,3 +10,5 @@ export { AuthProvider, useAuth } from './AuthContext';
 export { AccountsProvider, useAccounts } from './AccountsContext';
 // US-007
 export { CategoriesProvider, useCategories } from './CategoriesContext';
+// US-008
+export { TransactionsProvider, useTransactions } from './TransactionsContext';

@@ -3,6 +3,7 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { AuthProvider, useAuth } from './src/application/state/AuthContext';
 import { AccountsProvider } from './src/application/state/AccountsContext';
 import { CategoriesProvider } from './src/application/state/CategoriesContext';
+import { TransactionsProvider } from './src/application/state/TransactionsContext';
 import { AuthScreen } from './src/presentation/screens/AuthScreen';
 import { AccountsScreen } from './src/presentation/screens/AccountsScreen';
 
@@ -29,7 +30,9 @@ function RootNavigator() {
     return (
       <AccountsProvider>
         <CategoriesProvider>
-          <AccountsScreen />
+          <TransactionsProvider>
+            <AccountsScreen />
+          </TransactionsProvider>
         </CategoriesProvider>
       </AccountsProvider>
     );
