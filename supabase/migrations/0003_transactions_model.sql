@@ -105,7 +105,15 @@ CREATE INDEX idx_transactions_category_id ON public.transactions (category_id);
 CREATE INDEX idx_transactions_fingerprint ON public.transactions (fingerprint) WHERE fingerprint IS NOT NULL;
 
 -- ── 4. Trigger para updated_at ─────────────────────────────────────────────────
--- Reutiliza la función update_updated_at_column() creada en 0000_core_security.sql
+-- Crea la función si no existe
+CREATE OR REPLACE FUNCTION public.update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 CREATE TRIGGER set_transactions_updated_at
   BEFORE UPDATE ON public.transactions
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
