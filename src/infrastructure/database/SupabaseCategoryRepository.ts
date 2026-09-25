@@ -85,7 +85,6 @@ export class SupabaseCategoryRepository implements ICategoryRepository {
 
   // ── Mapper ─────────────────────────────────────────────────────────────────
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private mapToDomain(row: any): Category {
     return {
       id:        row.id,
