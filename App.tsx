@@ -2,6 +2,7 @@ import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { AuthProvider, useAuth } from './src/application/state/AuthContext';
 import { AccountsProvider } from './src/application/state/AccountsContext';
+import { CategoriesProvider } from './src/application/state/CategoriesContext';
 import { AuthScreen } from './src/presentation/screens/AuthScreen';
 import { AccountsScreen } from './src/presentation/screens/AccountsScreen';
 
@@ -27,7 +28,9 @@ function RootNavigator() {
     // We render AccountsScreen for now to satisfy US-006 until Expo Router is set up
     return (
       <AccountsProvider>
-        <AccountsScreen />
+        <CategoriesProvider>
+          <AccountsScreen />
+        </CategoriesProvider>
       </AccountsProvider>
     );
   }
