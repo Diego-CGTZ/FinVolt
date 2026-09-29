@@ -17,7 +17,7 @@ import { useTransactions } from '../../application/state/TransactionsContext';
 import { toMinorUnits, toDecimal, Transaction } from '../../domain/models/Transaction';
 import type { Account } from '../../domain/models/Account';
 
-type MovementTypeKey = 'EXPENSE' | 'INCOME' | 'TRANSFER' | 'CARD_PAYMENT';
+type MovementTypeKey = 'EXPENSE' | 'INCOME' | 'TRANSFER' | 'CARD_PAYMENT' | 'ATM_WITHDRAWAL';
 type PaymentMethodChoice = 'CARD' | 'CASH';
 
 export const AddExpenseScreen = () => {
@@ -72,12 +72,16 @@ export const AddExpenseScreen = () => {
     sourceAccountId ||
     (movementType === 'CARD_PAYMENT'
       ? paymentSourceAccounts[0]?.id || accounts[0]?.id || ''
+      : movementType === 'ATM_WITHDRAWAL'
+      ? bankAndDebitAccounts[0]?.id || accounts[0]?.id || ''
       : accounts[0]?.id || '');
 
   const effectiveDestinationAccountId =
     destinationAccountId ||
     (movementType === 'CARD_PAYMENT'
       ? creditCards[0]?.id || accounts[0]?.id || ''
+      : movementType === 'ATM_WITHDRAWAL'
+      ? cashAccounts[0]?.id || accounts[0]?.id || ''
       : accounts.find((a) => a.id !== effectiveSourceAccountId)?.id || '');
 
   const selectedSourceAccount = accounts.find((a) => a.id === effectiveSourceAccountId);
@@ -112,6 +116,9 @@ export const AddExpenseScreen = () => {
     if (initialType === 'CARD_PAYMENT') {
       setSourceAccountId(paymentSourceAccounts[0]?.id || '');
       setDestinationAccountId(creditCards[0]?.id || '');
+    } else if (initialType === 'ATM_WITHDRAWAL') {
+      setSourceAccountId(bankAndDebitAccounts[0]?.id || '');
+      setDestinationAccountId(cashAccounts[0]?.id || '');
     } else {
       if (accounts.length > 0) setSourceAccountId(accounts[0].id);
       if (accounts.length > 1) {
@@ -164,7 +171,7 @@ export const AddExpenseScreen = () => {
           Alert.alert('Cuenta requerida', 'Por favor selecciona una cuenta.');
           return;
         }
-      } else if (movementType === 'TRANSFER' || movementType === 'CARD_PAYMENT') {
+      } else if (movementType === 'TRANSFER' || movementType === 'CARD_PAYMENT' || movementType === 'ATM_WITHDRAWAL') {
         if (!effectiveSourceAccountId || !effectiveDestinationAccountId) {
           Alert.alert('Cuentas requeridas', 'Selecciona cuenta de origen y de destino.');
           return;
@@ -201,7 +208,7 @@ export const AddExpenseScreen = () => {
       if (editingTransaction) {
         await updateTransaction(editingTransaction.id, {
           accountId: effectiveSourceAccountId,
-          type: movementType === 'CARD_PAYMENT' ? 'TRANSFER' : (movementType as any),
+          type: (movementType === 'CARD_PAYMENT' || movementType === 'ATM_WITHDRAWAL') ? 'TRANSFER' : (movementType as any),
           amountMinor,
           merchant: merchant.trim() || null,
           merchantRaw: merchant.trim() || null,
@@ -287,6 +294,37 @@ export const AddExpenseScreen = () => {
 
         await updateTransaction(outbound.id, { linkedTransactionId: inbound.id });
         finishSuccess('Transferencia registrada correctamente');
+      } else if (movementType === 'ATM_WITHDRAWAL') {
+        if (!selectedSourceAccount || !selectedDestAccount) return;
+
+        const atmConcept = merchant.trim() || 'Retiro de cajero (ATM)';
+
+        const outbound = await createTransaction({
+          accountId: effectiveSourceAccountId,
+          type: 'TRANSFER',
+          amountMinor,
+          currency: selectedSourceAccount.currency,
+          occurredAt: new Date(),
+          description: description.trim() || `${atmConcept} desde ${selectedSourceAccount.name}`,
+          source: 'MANUAL',
+        });
+
+        const inbound = await createTransaction({
+          accountId: effectiveDestinationAccountId,
+          type: 'TRANSFER',
+          amountMinor,
+          currency: selectedDestAccount.currency,
+          occurredAt: new Date(),
+          description: description.trim() || `${atmConcept} a ${selectedDestAccount.name}`,
+          linkedTransactionId: outbound.id,
+          source: 'MANUAL',
+        });
+
+        await updateTransaction(outbound.id, { linkedTransactionId: inbound.id });
+
+        finishSuccess(
+          `Retiro de efectivo registrado: se retiró de "${selectedSourceAccount.name}" y se sumó a tu cuenta de efectivo "${selectedDestAccount.name}".`,
+        );
       } else if (movementType === 'CARD_PAYMENT') {
         if (!selectedSourceAccount || !selectedDestAccount) return;
 
@@ -674,6 +712,27 @@ export const AddExpenseScreen = () => {
                     <TouchableOpacity
                       style={[
                         styles.typeOptionBox,
+                        movementType === 'ATM_WITHDRAWAL' && styles.typeOptionBoxAtmActive,
+                      ]}
+                      onPress={() => {
+                        setMovementType('ATM_WITHDRAWAL');
+                        if (bankAndDebitAccounts.length > 0) setSourceAccountId(bankAndDebitAccounts[0].id);
+                        if (cashAccounts.length > 0) setDestinationAccountId(cashAccounts[0].id);
+                      }}
+                    >
+                      <Ionicons name="cash-outline" size={24} color="#f59e0b" />
+                      <View style={styles.typeOptionBoxInfo}>
+                        <Text style={styles.typeOptionBoxTitle}>Retiro de Cajero (ATM)</Text>
+                        <Text style={styles.typeOptionBoxDesc}>Sacar efectivo del banco para guardarlo en tu cartera</Text>
+                      </View>
+                      {movementType === 'ATM_WITHDRAWAL' && (
+                        <Ionicons name="checkmark-circle" size={20} color="#f59e0b" />
+                      )}
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.typeOptionBox,
                         movementType === 'CARD_PAYMENT' && styles.typeOptionBoxCardPaymentActive,
                       ]}
                       onPress={() => setMovementType('CARD_PAYMENT')}
@@ -739,7 +798,48 @@ export const AddExpenseScreen = () => {
               {/* PASO 3: Cuentas Involucradas con Diseño 100% Consistente y Fijo */}
               {step === 3 && (
                 <View style={styles.stepView}>
-                  {movementType === 'CARD_PAYMENT' ? (
+                  {movementType === 'ATM_WITHDRAWAL' ? (
+                    <>
+                      <View style={styles.stepIconBadge}>
+                        <Ionicons name="cash-outline" size={26} color="#f59e0b" />
+                      </View>
+                      <Text style={styles.stepTitle}>Detalle del Retiro de Efectivo</Text>
+                      <Text style={styles.stepSubtitle}>
+                        Selecciona la cuenta bancaria de donde sale el dinero y la cartera de efectivo que lo recibe.
+                      </Text>
+
+                      <Text style={styles.inputSectionLabel}>1. Cuenta bancaria de retiro (sale el dinero):</Text>
+                      <View style={styles.accountsVerticalList}>
+                        {bankAndDebitAccounts.map((acc) =>
+                          renderConsistentAccountItem(
+                            acc,
+                            effectiveSourceAccountId === acc.id,
+                            () => setSourceAccountId(acc.id),
+                          ),
+                        )}
+                      </View>
+
+                      <Text style={styles.inputSectionLabel}>2. Cartera de efectivo receptora (entra el dinero):</Text>
+                      {cashAccounts.length === 0 ? (
+                        <View style={styles.miniWarningBox}>
+                          <Ionicons name="information-circle-outline" size={16} color="#f59e0b" style={{ marginRight: 6 }} />
+                          <Text style={styles.miniWarningText}>
+                            No tienes una cuenta de efectivo configurada aún. Ve a la pestaña Cuentas y agrega una cuenta de tipo &quot;Efectivo en Mano&quot;.
+                          </Text>
+                        </View>
+                      ) : (
+                        <View style={styles.accountsVerticalList}>
+                          {cashAccounts.map((acc) =>
+                            renderConsistentAccountItem(
+                              acc,
+                              effectiveDestinationAccountId === acc.id,
+                              () => setDestinationAccountId(acc.id),
+                            ),
+                          )}
+                        </View>
+                      )}
+                    </>
+                  ) : movementType === 'CARD_PAYMENT' ? (
                     <>
                       <View style={styles.stepIconBadge}>
                         <Ionicons name="card-outline" size={26} color="#a855f7" />
@@ -979,6 +1079,8 @@ export const AddExpenseScreen = () => {
                             : 'Gasto'
                           : movementType === 'INCOME'
                           ? 'Ingreso'
+                          : movementType === 'ATM_WITHDRAWAL'
+                          ? 'Retiro de Cajero (ATM)'
                           : movementType === 'CARD_PAYMENT'
                           ? 'Pago de Tarjeta'
                           : 'Transferencia'}
@@ -994,7 +1096,24 @@ export const AddExpenseScreen = () => {
 
                     <View style={styles.receiptDivider} />
 
-                    {movementType === 'CARD_PAYMENT' ? (
+                    {movementType === 'ATM_WITHDRAWAL' ? (
+                      <>
+                        <View style={styles.receiptRow}>
+                          <Text style={styles.receiptLabel}>Operación:</Text>
+                          <Text style={[styles.receiptValue, { color: '#f59e0b' }]}>Retiro de Cajero (ATM)</Text>
+                        </View>
+                        <View style={styles.receiptRow}>
+                          <Text style={styles.receiptLabel}>Cuenta bancaria (sale):</Text>
+                          <Text style={styles.receiptValue}>{selectedSourceAccount?.name || '-'}</Text>
+                        </View>
+                        <View style={styles.receiptRow}>
+                          <Text style={styles.receiptLabel}>Cartera de efectivo (entra):</Text>
+                          <Text style={[styles.receiptValue, { color: '#f59e0b' }]}>
+                            {selectedDestAccount?.name || '-'}
+                          </Text>
+                        </View>
+                      </>
+                    ) : movementType === 'CARD_PAYMENT' ? (
                       <>
                         <View style={styles.receiptRow}>
                           <Text style={styles.receiptLabel}>Método:</Text>
@@ -1454,6 +1573,10 @@ const styles = StyleSheet.create({
   typeOptionBoxCardPaymentActive: {
     borderColor: '#a855f7',
     backgroundColor: '#a855f715',
+  },
+  typeOptionBoxAtmActive: {
+    borderColor: '#f59e0b',
+    backgroundColor: '#f59e0b15',
   },
   typeOptionBoxInfo: {
     flex: 1,

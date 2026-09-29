@@ -200,6 +200,21 @@ export const AccountsScreen = () => {
 
   const selectedConfig = ACCOUNT_TYPE_CONFIG[type];
 
+  // Métricas de Liquidez Real (US-013 / US-016)
+  const bankBalance = accounts
+    .filter((a) => a.type === 'CHECKING' || a.type === 'SAVINGS' || a.type === 'DIGITAL_WALLET')
+    .reduce((sum, a) => sum + (a.initialBalance || 0), 0);
+
+  const cashBalance = accounts
+    .filter((a) => a.type === 'CASH')
+    .reduce((sum, a) => sum + (a.initialBalance || 0), 0);
+
+  const creditDebt = accounts
+    .filter((a) => a.type === 'CREDIT_CARD')
+    .reduce((sum, a) => sum + (a.initialBalance < 0 ? Math.abs(a.initialBalance) : 0), 0);
+
+  const totalRealLiquidity = bankBalance + cashBalance;
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -219,6 +234,48 @@ export const AccountsScreen = () => {
           <Text style={styles.addButtonText}>Nueva Cuenta</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Banner de Liquidez Real (incluyendo efectivo en mano) */}
+      {accounts.length > 0 && (
+        <View style={styles.liquidityBannerWrapper}>
+          <View style={styles.liquidityCard}>
+            <View style={styles.liquidityTop}>
+              <View>
+                <Text style={styles.liquidityLabel}>Liquidez Real Disponible</Text>
+                <Text style={styles.liquidityAmount}>
+                  ${totalRealLiquidity.toFixed(2)} MXN
+                </Text>
+              </View>
+              <View style={styles.liquidityIconBadge}>
+                <Ionicons name="wallet" size={24} color="#6366f1" />
+              </View>
+            </View>
+
+            <View style={styles.liquidityPillRow}>
+              <View style={styles.liquidityPill}>
+                <Ionicons name="business-outline" size={13} color="#6366f1" style={{ marginRight: 4 }} />
+                <Text style={styles.liquidityPillText}>Bancos: ${bankBalance.toFixed(2)}</Text>
+              </View>
+
+              <View style={[styles.liquidityPill, styles.liquidityCashPill]}>
+                <Ionicons name="cash-outline" size={13} color="#f59e0b" style={{ marginRight: 4 }} />
+                <Text style={[styles.liquidityPillText, { color: '#f59e0b' }]}>
+                  Efectivo: ${cashBalance.toFixed(2)}
+                </Text>
+              </View>
+
+              {creditDebt > 0 && (
+                <View style={[styles.liquidityPill, styles.liquidityDebtPill]}>
+                  <Ionicons name="card-outline" size={13} color="#ef4444" style={{ marginRight: 4 }} />
+                  <Text style={[styles.liquidityPillText, { color: '#ef4444' }]}>
+                    Deuda: -${creditDebt.toFixed(2)}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </View>
+        </View>
+      )}
 
       {/* Lista de cuentas */}
       {accounts.length === 0 ? (
@@ -1267,5 +1324,72 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: 'bold',
+  },
+  // Liquidity Banner Styles
+  liquidityBannerWrapper: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+  },
+  liquidityCard: {
+    backgroundColor: '#1e293b',
+    borderRadius: 16,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  liquidityTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  liquidityLabel: {
+    color: '#94a3b8',
+    fontSize: 13,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  liquidityAmount: {
+    color: '#f8fafc',
+    fontSize: 24,
+    fontWeight: '800',
+    marginTop: 2,
+  },
+  liquidityIconBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#0f172a',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  liquidityPillRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  liquidityPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0f172a',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  liquidityPillText: {
+    color: '#94a3b8',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  liquidityCashPill: {
+    borderColor: '#f59e0b44',
+  },
+  liquidityDebtPill: {
+    borderColor: '#ef444444',
   },
 });
