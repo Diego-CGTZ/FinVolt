@@ -6,3 +6,4 @@
  * RecordIncomeUseCase (US-010), GetBudgetSummaryUseCase (US-047).
  */
 export * from './GetBalancesUseCase';
+export * from './GetLiquidityUseCase';

@@ -14,7 +14,10 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useAccounts } from '../../application/state/AccountsContext';
 import { useTransactions } from '../../application/state/TransactionsContext';
-import { calculateAggregateBalances } from '../../domain/services/BalanceCalculatorService';
+import {
+  calculateAggregateBalances,
+  calculateLiquidityMetrics,
+} from '../../domain/services/BalanceCalculatorService';
 import type { AccountType } from '../../domain/models/Account';
 
 export const ACCOUNT_TYPE_CONFIG: Record<
@@ -79,9 +82,14 @@ export const AccountsScreen = () => {
   const { transactions } = useTransactions();
   const [isModalVisible, setIsModalVisible] = useState(false);
 
-  // Cómputo de balances y agregados en tiempo real (US-015)
+  // Cómputo de balances y liquidez real (US-015 / US-016)
   const aggregates = useMemo(
     () => calculateAggregateBalances(accounts, transactions),
+    [accounts, transactions],
+  );
+
+  const liquidity = useMemo(
+    () => calculateLiquidityMetrics(accounts, transactions),
     [accounts, transactions],
   );
 
@@ -209,16 +217,17 @@ export const AccountsScreen = () => {
 
   const selectedConfig = ACCOUNT_TYPE_CONFIG[type];
 
-  // Métricas y balances agregados en vivo (US-015)
+  // Métricas y balances agregados en vivo (US-015 / US-016)
   const bankBalance =
-    aggregates.breakdownByType.CHECKING.totalBalance +
-    aggregates.breakdownByType.SAVINGS.totalBalance +
-    aggregates.breakdownByType.DIGITAL_WALLET.totalBalance;
+    liquidity.liquidAccountsBreakdown.checking +
+    liquidity.liquidAccountsBreakdown.savings +
+    liquidity.liquidAccountsBreakdown.digitalWallets;
 
-  const cashBalance = aggregates.breakdownByType.CASH.totalBalance;
-  const creditDebt = aggregates.totalCreditDebt;
-  const totalRealLiquidity = aggregates.totalLiquidAssets;
-  const totalNetWorth = aggregates.totalNetWorth;
+  const cashBalance = liquidity.liquidAccountsBreakdown.cash;
+  const creditDebt = liquidity.creditCardDebt;
+  const totalRealLiquidity = liquidity.realLiquidity;
+  const totalNetWorth = liquidity.accountingBalance;
+  const projectedLiquidity = liquidity.projectedLiquidity;
 
   return (
     <View style={styles.container}>
@@ -240,7 +249,7 @@ export const AccountsScreen = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Banner de Balances y Liquidez Real Agregados (US-015) */}
+      {/* Banner de Balances y Liquidez Real Agregados (US-015 / US-016) */}
       {accounts.length > 0 && (
         <View style={styles.liquidityBannerWrapper}>
           <View style={styles.liquidityCard}>
@@ -251,7 +260,7 @@ export const AccountsScreen = () => {
                   ${totalRealLiquidity.toFixed(2)} MXN
                 </Text>
                 <Text style={styles.netWorthSubtitle}>
-                  Patrimonio Neto: ${totalNetWorth.toFixed(2)} MXN
+                  Proyectada: ${projectedLiquidity.toFixed(2)} • Patrimonio: ${totalNetWorth.toFixed(2)}
                 </Text>
               </View>
               <View style={styles.liquidityIconBadge}>

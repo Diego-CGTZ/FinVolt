@@ -13,7 +13,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../application/state/AuthContext';
 import { useAccounts } from '../../application/state/AccountsContext';
 import { useTransactions } from '../../application/state/TransactionsContext';
-import { calculateAggregateBalances } from '../../domain/services/BalanceCalculatorService';
+import {
+  calculateAggregateBalances,
+  calculateLiquidityMetrics,
+} from '../../domain/services/BalanceCalculatorService';
 import { ACCOUNT_TYPE_CONFIG } from './AccountsScreen';
 
 interface HomeScreenProps {
@@ -21,11 +24,12 @@ interface HomeScreenProps {
 }
 
 /**
- * HomeScreen (Dashboard US-015)
+ * HomeScreen (Dashboard US-015 / US-016)
  *
  * Muestra el panel financiero principal con:
- * - Balances agregados (Patrimonio neto, Liquidez real disponible, Deuda en crédito).
- * - Desglose de balances por tipo de cuenta.
+ * - Distinción estricta entre Balance Contable, Liquidez Real y Liquidez Proyectada.
+ * - Desglose de liquidez líquida (Efectivo, Débito, Ahorro, Billeteras).
+ * - Exclusión estricta de tarjetas como liquidez positiva y de transferencias como gastos.
  * - Balances actuales individuales por cuenta (actualizados automáticamente con transacciones).
  * - Cierre de sesión seguro (US-004).
  */
@@ -36,6 +40,11 @@ export function HomeScreen({ onNavigateTab }: HomeScreenProps) {
 
   const aggregates = useMemo(
     () => calculateAggregateBalances(accounts, transactions),
+    [accounts, transactions],
+  );
+
+  const liquidity = useMemo(
+    () => calculateLiquidityMetrics(accounts, transactions),
     [accounts, transactions],
   );
 
@@ -55,11 +64,6 @@ export function HomeScreen({ onNavigateTab }: HomeScreenProps) {
       },
     ]);
   }
-
-  const bankBalance = aggregates.breakdownByType.CHECKING.totalBalance;
-  const savingsBalance = aggregates.breakdownByType.SAVINGS.totalBalance;
-  const cashBalance = aggregates.breakdownByType.CASH.totalBalance;
-  const walletBalance = aggregates.breakdownByType.DIGITAL_WALLET.totalBalance;
 
   const isNetWorthPositive = aggregates.totalNetWorth >= 0;
 
@@ -140,24 +144,36 @@ export function HomeScreen({ onNavigateTab }: HomeScreenProps) {
 
               <View style={styles.netWorthFooter}>
                 <View style={styles.summaryMetricItem}>
-                  <Text style={styles.summaryMetricLabel}>Activos Líquidos</Text>
+                  <Text style={styles.summaryMetricLabel}>Liquidez Real</Text>
                   <Text style={styles.summaryMetricValue}>
-                    ${aggregates.totalLiquidAssets.toFixed(2)}
+                    ${liquidity.realLiquidity.toFixed(2)}
+                  </Text>
+                </View>
+                <View style={styles.summaryMetricDivider} />
+                <View style={styles.summaryMetricItem}>
+                  <Text style={styles.summaryMetricLabel}>Proyectada</Text>
+                  <Text
+                    style={[
+                      styles.summaryMetricValue,
+                      liquidity.projectedLiquidity < 0 && styles.debtText,
+                    ]}
+                  >
+                    ${liquidity.projectedLiquidity.toFixed(2)}
                   </Text>
                 </View>
                 <View style={styles.summaryMetricDivider} />
                 <View style={styles.summaryMetricItem}>
                   <Text style={styles.summaryMetricLabel}>Deuda Tarjetas</Text>
-                  <Text style={[styles.summaryMetricValue, aggregates.totalCreditDebt > 0 && styles.debtText]}>
-                    {aggregates.totalCreditDebt > 0
-                      ? `-$${aggregates.totalCreditDebt.toFixed(2)}`
+                  <Text style={[styles.summaryMetricValue, liquidity.creditCardDebt > 0 && styles.debtText]}>
+                    {liquidity.creditCardDebt > 0
+                      ? `-$${liquidity.creditCardDebt.toFixed(2)}`
                       : '$0.00'}
                   </Text>
                 </View>
               </View>
             </View>
 
-            {/* Fila de Tarjetas Agregadas: Liquidez y Crédito */}
+            {/* Fila de Tarjetas de Liquidez Real vs Proyectada (US-016) */}
             <View style={styles.cardsRow}>
               {/* Liquidez Real */}
               <View style={styles.metricCard}>
@@ -169,67 +185,111 @@ export function HomeScreen({ onNavigateTab }: HomeScreenProps) {
                 </View>
                 <Text style={styles.metricCardLabel}>Liquidez Real</Text>
                 <Text style={styles.metricCardAmount}>
-                  ${aggregates.totalLiquidAssets.toFixed(2)}
+                  ${liquidity.realLiquidity.toFixed(2)}
                 </Text>
-                <Text style={styles.metricCardSub}>Bancos + Efectivo</Text>
+                <Text style={styles.metricCardSub}>Efectivo + Bancos + Ahorros</Text>
               </View>
 
-              {/* Deuda en Crédito */}
+              {/* Liquidez Proyectada */}
               <View style={styles.metricCard}>
                 <View style={styles.metricCardHeader}>
-                  <View style={[styles.metricIconBox, { backgroundColor: '#ef444422' }]}>
-                    <Ionicons name="card-outline" size={18} color="#ef4444" />
+                  <View
+                    style={[
+                      styles.metricIconBox,
+                      {
+                        backgroundColor:
+                          liquidity.projectedLiquidity >= 0 ? '#38bdf822' : '#ef444422',
+                      },
+                    ]}
+                  >
+                    <Ionicons
+                      name="calculator-outline"
+                      size={18}
+                      color={liquidity.projectedLiquidity >= 0 ? '#38bdf8' : '#ef4444'}
+                    />
                   </View>
                   <Text
                     style={[
                       styles.metricCardTag,
-                      aggregates.totalCreditDebt > 0 ? styles.tagDebt : styles.tagClear,
+                      liquidity.projectedLiquidity >= 0 ? styles.tagClear : styles.tagDebt,
                     ]}
                   >
-                    {aggregates.totalCreditDebt > 0 ? 'Por Pagar' : 'Al Día'}
+                    Proyectada
                   </Text>
                 </View>
-                <Text style={styles.metricCardLabel}>Crédito Usado</Text>
+                <Text style={styles.metricCardLabel}>Liquidez Proyectada</Text>
                 <Text
                   style={[
                     styles.metricCardAmount,
-                    aggregates.totalCreditDebt > 0 && styles.debtAmountText,
+                    liquidity.projectedLiquidity < 0 && styles.debtAmountText,
                   ]}
                 >
-                  {aggregates.totalCreditDebt > 0
-                    ? `-$${aggregates.totalCreditDebt.toFixed(2)}`
-                    : '$0.00'}
+                  ${liquidity.projectedLiquidity.toFixed(2)}
                 </Text>
-                <Text style={styles.metricCardSub}>Obligaciones pendientes</Text>
+                <Text style={styles.metricCardSub}>Tras saldar deudas de crédito</Text>
               </View>
             </View>
 
-            {/* Desglose Agregado por Instrumento */}
+            {/* Flujo Real del Periodo (US-016: Transferencias no son gastos) */}
+            <View style={styles.cashFlowCard}>
+              <View style={styles.cashFlowHeader}>
+                <Ionicons name="swap-vertical-outline" size={16} color="#6366f1" />
+                <Text style={styles.cashFlowTitle}>Flujo Real del Periodo</Text>
+                <Text style={styles.cashFlowSubtitle}>(Sin transferencias)</Text>
+              </View>
+              <View style={styles.cashFlowRow}>
+                <View style={styles.cashFlowItem}>
+                  <View style={styles.cashFlowItemHeader}>
+                    <Ionicons name="arrow-up-circle" size={14} color="#10b981" />
+                    <Text style={styles.cashFlowItemLabel}>Ingresos</Text>
+                  </View>
+                  <Text style={styles.incomeAmount}>+${liquidity.actualIncomes.toFixed(2)}</Text>
+                </View>
+                <View style={styles.cashFlowDivider} />
+                <View style={styles.cashFlowItem}>
+                  <View style={styles.cashFlowItemHeader}>
+                    <Ionicons name="arrow-down-circle" size={14} color="#ef4444" />
+                    <Text style={styles.cashFlowItemLabel}>Gastos</Text>
+                  </View>
+                  <Text style={styles.expenseAmount}>-${liquidity.actualExpenses.toFixed(2)}</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Desglose de Canastas de Liquidez Líquida */}
             <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>Desglose por Instrumento</Text>
+              <Text style={styles.sectionTitle}>Canastas de Liquidez Líquida</Text>
               <View style={styles.breakdownGrid}>
                 <View style={styles.breakdownItem}>
                   <Ionicons name="business-outline" size={16} color="#6366f1" />
-                  <Text style={styles.breakdownName}>Cuentas Bancarias</Text>
-                  <Text style={styles.breakdownValue}>${bankBalance.toFixed(2)}</Text>
+                  <Text style={styles.breakdownName}>Cuentas Bancarias / Débito</Text>
+                  <Text style={styles.breakdownValue}>
+                    ${liquidity.liquidAccountsBreakdown.checking.toFixed(2)}
+                  </Text>
                 </View>
                 <View style={styles.breakdownItem}>
                   <Ionicons name="cash-outline" size={16} color="#f59e0b" />
                   <Text style={styles.breakdownName}>Efectivo en Mano</Text>
-                  <Text style={styles.breakdownValue}>${cashBalance.toFixed(2)}</Text>
+                  <Text style={styles.breakdownValue}>
+                    ${liquidity.liquidAccountsBreakdown.cash.toFixed(2)}
+                  </Text>
                 </View>
-                {savingsBalance > 0 && (
+                {liquidity.liquidAccountsBreakdown.savings > 0 && (
                   <View style={styles.breakdownItem}>
                     <Ionicons name="trending-up-outline" size={16} color="#10b981" />
                     <Text style={styles.breakdownName}>Ahorros / Inversión</Text>
-                    <Text style={styles.breakdownValue}>${savingsBalance.toFixed(2)}</Text>
+                    <Text style={styles.breakdownValue}>
+                      ${liquidity.liquidAccountsBreakdown.savings.toFixed(2)}
+                    </Text>
                   </View>
                 )}
-                {walletBalance > 0 && (
+                {liquidity.liquidAccountsBreakdown.digitalWallets > 0 && (
                   <View style={styles.breakdownItem}>
                     <Ionicons name="phone-portrait-outline" size={16} color="#a855f7" />
                     <Text style={styles.breakdownName}>Billeteras Digitales</Text>
-                    <Text style={styles.breakdownValue}>${walletBalance.toFixed(2)}</Text>
+                    <Text style={styles.breakdownValue}>
+                      ${liquidity.liquidAccountsBreakdown.digitalWallets.toFixed(2)}
+                    </Text>
                   </View>
                 )}
               </View>
@@ -569,6 +629,64 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#64748b',
     marginTop: 2,
+  },
+  // Cash Flow Card (US-016)
+  cashFlowCard: {
+    backgroundColor: '#1e293b',
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#334155',
+    gap: 12,
+  },
+  cashFlowHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  cashFlowTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#f8fafc',
+  },
+  cashFlowSubtitle: {
+    fontSize: 11,
+    color: '#64748b',
+  },
+  cashFlowRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  cashFlowItem: {
+    flex: 1,
+  },
+  cashFlowItemHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 4,
+  },
+  cashFlowItemLabel: {
+    fontSize: 11,
+    color: '#94a3b8',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  cashFlowDivider: {
+    width: 1,
+    height: 32,
+    backgroundColor: '#334155',
+    marginHorizontal: 16,
+  },
+  incomeAmount: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#10b981',
+  },
+  expenseAmount: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#ef4444',
   },
   // Section Breakdown
   sectionContainer: {
