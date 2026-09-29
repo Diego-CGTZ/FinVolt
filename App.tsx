@@ -7,6 +7,7 @@ import { TransactionsProvider } from './src/application/state/TransactionsContex
 import { AuthScreen } from './src/presentation/screens/AuthScreen';
 import { AccountsScreen } from './src/presentation/screens/AccountsScreen';
 import { AddExpenseScreen } from './src/presentation/screens/AddExpenseScreen';
+import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { TouchableOpacity, Text } from 'react-native';
 
@@ -23,12 +24,24 @@ function MainTabs() {
           style={[styles.tabButton, activeTab === 'ACCOUNTS' && styles.tabButtonActive]}
           onPress={() => setActiveTab('ACCOUNTS')}
         >
+          <Ionicons
+            name={activeTab === 'ACCOUNTS' ? 'wallet' : 'wallet-outline'}
+            size={22}
+            color={activeTab === 'ACCOUNTS' ? '#6366f1' : '#94a3b8'}
+            style={styles.tabIcon}
+          />
           <Text style={[styles.tabText, activeTab === 'ACCOUNTS' && styles.tabTextActive]}>Cuentas</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.tabButton, activeTab === 'TRANSACTIONS' && styles.tabButtonActive]}
           onPress={() => setActiveTab('TRANSACTIONS')}
         >
+          <Ionicons
+            name={activeTab === 'TRANSACTIONS' ? 'receipt' : 'receipt-outline'}
+            size={22}
+            color={activeTab === 'TRANSACTIONS' ? '#6366f1' : '#94a3b8'}
+            style={styles.tabIcon}
+          />
           <Text style={[styles.tabText, activeTab === 'TRANSACTIONS' && styles.tabTextActive]}>
             Movimientos
           </Text>
@@ -103,13 +116,17 @@ const styles = StyleSheet.create({
     marginTop: -10,
     paddingTop: 12,
   },
+  tabIcon: {
+    marginBottom: 4,
+  },
   tabText: {
     color: '#94a3b8',
-    fontSize: 14,
+    fontSize: 12,
+    fontWeight: '500',
   },
   tabTextActive: {
     color: '#6366f1',
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
 });
 

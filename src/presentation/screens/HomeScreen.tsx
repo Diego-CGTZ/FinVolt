@@ -1,5 +1,6 @@
 import React from 'react';
 import { Alert, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../application/state/AuthContext';
 
 /**
@@ -22,7 +23,7 @@ export function HomeScreen() {
   return (
     <SafeAreaView style={styles.root}>
       <View style={styles.container}>
-        <Text style={styles.logo}>⚡</Text>
+        <Ionicons name="flash" size={56} color="#6366f1" />
         <Text style={styles.title}>FinVolt</Text>
         <Text style={styles.subtitle}>Dashboard</Text>
         <View style={styles.badge}>

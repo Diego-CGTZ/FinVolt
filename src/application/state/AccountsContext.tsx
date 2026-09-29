@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { Account } from '../../domain/models/Account';
 import { SupabaseAccountRepository } from '../../infrastructure/database/SupabaseAccountRepository';
 import { useAuth } from './AuthContext';
@@ -24,7 +24,7 @@ export const AccountsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // We instantiate the repository directly here for simplicity,
   // though it could be injected via a DI container.
-  const repository = new SupabaseAccountRepository();
+  const repository = useMemo(() => new SupabaseAccountRepository(), []);
 
   const loadAccounts = useCallback(async () => {
     if (authState.status !== 'authenticated') return;
@@ -39,7 +39,7 @@ export const AccountsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } finally {
       setIsLoading(false);
     }
-  }, [authState.status]);
+  }, [authState.status, repository]);
 
   const createAccount = async (
     accountData: Omit<Account, 'id' | 'createdAt' | 'updatedAt' | 'userId'>,
@@ -79,7 +79,7 @@ export const AccountsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return () => {
       mounted = false;
     };
-  }, [authState.status]);
+  }, [authState.status, repository]);
 
   return (
     <AccountsContext.Provider
