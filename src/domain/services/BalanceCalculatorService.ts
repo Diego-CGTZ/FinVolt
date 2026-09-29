@@ -245,3 +245,136 @@ export function calculateAggregateBalances(
     breakdownByType,
   };
 }
+
+/**
+ * Métricas especializadas de Liquidez Real y Proyectada (US-016).
+ *
+ * Separa de manera estricta:
+ * 1. Balance Contable (Patrimonio Neto)
+ * 2. Liquidez Real Disponible (Efectivo, Débito, Ahorros, Billeteras)
+ * 3. Liquidez Proyectada (Liquidez real menos deudas de tarjeta y cargos pendientes)
+ * 4. Gastos e ingresos reales (las transferencias NO son gastos ni ingresos)
+ */
+export interface LiquidityMetrics {
+  /**
+   * Balance contable total: suma algebraica de saldos de todas las cuentas.
+   */
+  accountingBalance: number;
+
+  /**
+   * Liquidez real disponible: efectivo + cheques/débito + ahorros + billeteras.
+   * Las líneas de crédito NO se consideran liquidez positiva bajo ninguna circunstancia.
+   */
+  realLiquidity: number;
+
+  /**
+   * Liquidez proyectada: liquidez real disponible deduciendo las obligaciones inmediatas
+   * (deuda acumulada en tarjetas de crédito y cargos pendientes).
+   */
+  projectedLiquidity: number;
+
+  /**
+   * Deuda acumulada en tarjetas de crédito (monto adeudado).
+   */
+  creditCardDebt: number;
+
+  /**
+   * Compromisos pendientes (gastos en estado PENDING o CANDIDATE no liquidados).
+   */
+  pendingCommitments: number;
+
+  /**
+   * Desglose por canasta de liquidez.
+   */
+  liquidAccountsBreakdown: {
+    cash: number;
+    checking: number;
+    savings: number;
+    digitalWallets: number;
+  };
+
+  /**
+   * Gastos reales del periodo (excluye estrictamente transferencias entre cuentas propias).
+   */
+  actualExpenses: number;
+
+  /**
+   * Ingresos reales del periodo (excluye transferencias entre cuentas propias).
+   */
+  actualIncomes: number;
+}
+
+/**
+ * Calcula la liquidez real y proyectada distinguiéndola del balance contable (US-016).
+ */
+export function calculateLiquidityMetrics(
+  accounts: Account[],
+  transactions: Transaction[],
+): LiquidityMetrics {
+  const aggregate = calculateAggregateBalances(accounts, transactions);
+
+  let cash = 0;
+  let checking = 0;
+  let savings = 0;
+  let digitalWallets = 0;
+
+  for (const acc of accounts) {
+    const bal = aggregate.balancesByAccount[acc.id]?.currentBalance ?? acc.initialBalance;
+
+    // Regla US-016: Las tarjetas de crédito NUNCA se tratan como liquidez positiva
+    if (acc.type === 'CREDIT_CARD') continue;
+
+    // Solo sumamos saldos positivos disponibles
+    if (bal > 0) {
+      if (acc.type === 'CASH') cash += bal;
+      else if (acc.type === 'CHECKING') checking += bal;
+      else if (acc.type === 'SAVINGS') savings += bal;
+      else if (acc.type === 'DIGITAL_WALLET') digitalWallets += bal;
+    }
+  }
+
+  const realLiquidity = cash + checking + savings + digitalWallets;
+  const creditCardDebt = aggregate.totalCreditDebt;
+
+  // Compromisos pendientes que deducen liquidez futura
+  let pendingCommitments = 0;
+  for (const tx of transactions) {
+    if (tx.status === 'PENDING' || tx.status === 'CANDIDATE') {
+      const acc = accounts.find((a) => a.id === tx.accountId);
+      if (acc && acc.type !== 'CREDIT_CARD' && tx.type === 'EXPENSE') {
+        pendingCommitments += Number(tx.amountMinor) / 100;
+      }
+    }
+  }
+
+  // Liquidez Proyectada = Liquidez Real - Deuda en Tarjetas - Compromisos Pendientes
+  const projectedLiquidity = realLiquidity - creditCardDebt - pendingCommitments;
+
+  // Regla US-016: Transfers NO son gastos ni ingresos
+  let actualExpenses = 0;
+  let actualIncomes = 0;
+  for (const tx of transactions) {
+    if (tx.status === 'REJECTED' || tx.status === 'DUPLICATE') continue;
+    if (tx.type === 'EXPENSE') {
+      actualExpenses += Number(tx.amountMinor) / 100;
+    } else if (tx.type === 'INCOME') {
+      actualIncomes += Number(tx.amountMinor) / 100;
+    }
+  }
+
+  return {
+    accountingBalance: aggregate.totalNetWorth,
+    realLiquidity,
+    projectedLiquidity,
+    creditCardDebt,
+    pendingCommitments,
+    liquidAccountsBreakdown: {
+      cash,
+      checking,
+      savings,
+      digitalWallets,
+    },
+    actualExpenses,
+    actualIncomes,
+  };
+}
