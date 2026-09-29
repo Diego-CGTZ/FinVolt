@@ -302,4 +302,12 @@ kebab-case      → Archivos de configuración, scripts
 
 ---
 
-*Última actualización: 2026-09-24 — Workflow establecido junto con el agente Antigravity.*
+## 12. Reglas Críticas de UI y Diseño
+
+### 12.1 Prohibición Absoluta de Emojis
+- **NUNCA USAR EMOJIS EN LA INTERFAZ DE USUARIO:** Queda terminantemente prohibido utilizar emojis en cualquier parte de la aplicación (pantallas, listas, formularios, botones, badges, modales, alertas, etc.). Dan un aspecto informal e improvisado que demerita el estándar premium de la app.
+- **Uso Obligatorio de Íconos Vectoriales:** Si se requiere un elemento gráfico o identificador visual, se deben usar SIEMPRE íconos de `@expo/vector-icons` (principalmente `Ionicons` u otros paquetes vectoriales estándar) o tipografía estilizada con contenedores/badges modernos.
+
+---
+
+*Última actualización: 2026-09-29 — Workflow establecido junto con el agente Antigravity.*

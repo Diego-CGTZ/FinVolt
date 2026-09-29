@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../application/state/AuthContext';
 
 type Mode = 'login' | 'signup';
@@ -54,7 +55,10 @@ export function AuthScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={styles.card}>
-        <Text style={styles.logo}>⚡ FinVolt</Text>
+        <View style={styles.logoRow}>
+          <Ionicons name="flash" size={26} color="#6366f1" />
+          <Text style={styles.logoText}>FinVolt</Text>
+        </View>
         <Text style={styles.subtitle}>{mode === 'login' ? 'Inicia sesión' : 'Crea tu cuenta'}</Text>
 
         {/* Google Sign-In */}
@@ -142,12 +146,17 @@ const styles = StyleSheet.create({
     padding: 28,
     gap: 16,
   },
-  logo: {
+  logoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  logoText: {
     fontSize: 28,
     fontWeight: '800',
     color: '#f8fafc',
-    textAlign: 'center',
-    marginBottom: 4,
   },
   subtitle: {
     fontSize: 16,
