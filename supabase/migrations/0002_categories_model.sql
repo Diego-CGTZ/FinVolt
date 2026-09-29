@@ -65,7 +65,7 @@ INSERT INTO public.categories (name, icon, color, user_id) VALUES
   ('Supermercado',     'basket',        '#82E0AA', NULL),
   ('Restaurantes',     'fast-food',     '#F1948A', NULL),
   ('Cafeterías',       'cafe',          '#C39BD3', NULL),
-  ('Gasolina',         'gas-station',   '#85C1E9', NULL),
+  ('Gasolina',         'speedometer-outline', '#85C1E9', NULL),
   ('Suscripciones',    'card',          '#A9CCE3', NULL),
   ('Mascota',          'paw',           '#FAD7A0', NULL),
   ('Viajes',           'airplane',      '#A8D8EA', NULL),

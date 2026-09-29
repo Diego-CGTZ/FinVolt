@@ -105,6 +105,7 @@ export class SupabaseTransactionRepository implements ITransactionRepository {
   async updateTransaction(id: string, input: UpdateTransactionInput): Promise<Transaction> {
     const patch: Record<string, unknown> = {};
 
+    if (input.accountId    !== undefined) patch.account_id        = input.accountId;
     if (input.type         !== undefined) patch.type              = input.type;
     if (input.amountMinor  !== undefined) patch.amount_minor      = input.amountMinor;
     if (input.currency     !== undefined) patch.currency          = input.currency;

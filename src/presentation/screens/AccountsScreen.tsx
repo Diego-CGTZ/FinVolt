@@ -17,43 +17,49 @@ import type { AccountType } from '../../domain/models/Account';
 
 export const ACCOUNT_TYPE_CONFIG: Record<
   AccountType,
-  { label: string; iconName: keyof typeof Ionicons.glyphMap; description: string; color: string }
+  { label: string; iconName: keyof typeof Ionicons.glyphMap; description: string; color: string; gradientBg: string }
 > = {
   CREDIT_CARD: {
     label: 'Tarjeta de Crédito',
     iconName: 'card-outline',
     description: 'Línea de crédito para compras a meses o pagos diferidos',
     color: '#0891b2',
+    gradientBg: '#0e3a53',
   },
   CHECKING: {
     label: 'Cuenta Bancaria / Débito',
     iconName: 'business-outline',
     description: 'Tu cuenta de nómina, cheques o tarjeta de débito diaria',
     color: '#6366f1',
+    gradientBg: '#1e1b4b',
   },
   SAVINGS: {
     label: 'Cuenta de Ahorro',
     iconName: 'trending-up-outline',
     description: 'Fondo de emergencia o ahorros con rendimientos',
     color: '#10b981',
+    gradientBg: '#064e3b',
   },
   CASH: {
     label: 'Efectivo en Mano',
     iconName: 'cash-outline',
     description: 'Billetes y monedas en tu cartera o caja chica',
     color: '#f59e0b',
+    gradientBg: '#451a03',
   },
   DIGITAL_WALLET: {
     label: 'Billetera Digital',
     iconName: 'phone-portrait-outline',
     description: 'Mercado Pago, PayPal, Didi Pay, etc.',
     color: '#a855f7',
+    gradientBg: '#3b0764',
   },
   OTHER: {
     label: 'Otra Cuenta',
     iconName: 'layers-outline',
     description: 'Cualquier otro activo o instrumento financiero',
     color: '#64748b',
+    gradientBg: '#1e293b',
   },
 };
 
@@ -70,8 +76,10 @@ export const AccountsScreen = () => {
   const { accounts, isLoading, createAccount, deleteAccount } = useAccounts();
   const [isModalVisible, setIsModalVisible] = useState(false);
 
-  // Wizard state: 1: Nombre, 2: Tipo de cuenta, 3: Saldo / Crédito
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  // Wizard state:
+  // For standard accounts: 1: Nombre, 2: Tipo, 3: Saldo, 4: Resumen
+  // For credit cards: 1: Nombre, 2: Tipo, 3: Límite crédito, 4: Saldo utilizado, 5: Resumen
+  const [step, setStep] = useState<number>(1);
 
   // Form fields
   const [name, setName] = useState('');
@@ -81,6 +89,9 @@ export const AccountsScreen = () => {
   const [creditLimit, setCreditLimit] = useState('');
   const [usedBalance, setUsedBalance] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const isCredit = type === 'CREDIT_CARD';
+  const totalSteps = isCredit ? 5 : 4;
 
   const resetForm = () => {
     setStep(1);
@@ -101,6 +112,24 @@ export const AccountsScreen = () => {
       setStep(2);
     } else if (step === 2) {
       setStep(3);
+    } else if (step === 3) {
+      if (!isCredit) {
+        // Standard account: proceed to summary
+        setStep(4);
+      } else {
+        // Credit card: proceed to used balance step
+        setStep(4);
+      }
+    } else if (step === 4) {
+      if (isCredit) {
+        setStep(5);
+      }
+    }
+  };
+
+  const handlePrevStep = () => {
+    if (step > 1) {
+      setStep((prev) => prev - 1);
     }
   };
 
@@ -112,7 +141,7 @@ export const AccountsScreen = () => {
 
       if (type === 'CREDIT_CARD') {
         const parsedUsed = parseFloat(usedBalance);
-        // Si ha utilizado crédito, se registra como saldo deudor inicial (negativo)
+        // Saldo deudor inicial (negativo)
         initialBalanceNumber = !isNaN(parsedUsed) && parsedUsed > 0 ? -parsedUsed : 0;
       } else {
         const parsedBalance = parseFloat(balance);
@@ -127,7 +156,7 @@ export const AccountsScreen = () => {
       });
 
       resetForm();
-      Alert.alert('¡Cuenta creada!', `Tu cuenta "${name.trim()}" ha sido agregada con éxito.`);
+      Alert.alert('Cuenta creada', `Tu cuenta "${name.trim()}" ha sido agregada con éxito.`);
     } catch (err: any) {
       Alert.alert('Error', err.message || 'No se pudo crear la cuenta');
     } finally {
@@ -169,6 +198,8 @@ export const AccountsScreen = () => {
   const numUsed = parseFloat(usedBalance) || 0;
   const calculatedAvailable = Math.max(0, numCreditLimit - numUsed);
 
+  const selectedConfig = ACCOUNT_TYPE_CONFIG[type];
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -184,15 +215,18 @@ export const AccountsScreen = () => {
             setIsModalVisible(true);
           }}
         >
-          <Text style={styles.addButtonText}>+ Nueva Cuenta</Text>
+          <Ionicons name="add" size={18} color="#fff" style={styles.btnIcon} />
+          <Text style={styles.addButtonText}>Nueva Cuenta</Text>
         </TouchableOpacity>
       </View>
 
       {/* Lista de cuentas */}
       {accounts.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Ionicons name="wallet-outline" size={48} color="#6366f1" />
-          <Text style={styles.emptyText}>No tienes cuentas configuradas aún.</Text>
+          <View style={styles.emptyIconBadge}>
+            <Ionicons name="wallet-outline" size={44} color="#6366f1" />
+          </View>
+          <Text style={styles.emptyText}>No tienes cuentas configuradas aún</Text>
           <Text style={styles.emptySubtext}>
             Agrega tu primera cuenta bancaria, tarjeta de crédito o efectivo para comenzar.
           </Text>
@@ -203,6 +237,7 @@ export const AccountsScreen = () => {
               setIsModalVisible(true);
             }}
           >
+            <Ionicons name="add-circle-outline" size={18} color="#fff" style={styles.btnIcon} />
             <Text style={styles.emptyButtonText}>Agregar mi primera cuenta</Text>
           </TouchableOpacity>
         </View>
@@ -212,19 +247,19 @@ export const AccountsScreen = () => {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
           renderItem={({ item }) => {
-            const isCredit = item.type === 'CREDIT_CARD';
+            const isItemCredit = item.type === 'CREDIT_CARD';
             const config = ACCOUNT_TYPE_CONFIG[item.type] || ACCOUNT_TYPE_CONFIG.OTHER;
             const isNegative = item.initialBalance < 0;
 
             return (
-              <View style={[styles.accountCard, isCredit && styles.creditCardBorder]}>
+              <View style={[styles.accountCard, isItemCredit && styles.creditCardBorder]}>
                 <View style={styles.cardHeader}>
-                  <View style={styles.iconBadge}>
+                  <View style={[styles.iconBadge, { backgroundColor: `${config.color}22` }]}>
                     <Ionicons name={config.iconName} size={22} color={config.color} />
                   </View>
                   <View style={styles.accountInfo}>
                     <Text style={styles.accountName}>{item.name}</Text>
-                    <Text style={[styles.accountType, isCredit && styles.creditCardType]}>
+                    <Text style={[styles.accountType, isItemCredit && styles.creditCardType]}>
                       {config.label}
                     </Text>
                   </View>
@@ -232,18 +267,18 @@ export const AccountsScreen = () => {
                     style={styles.deleteButton}
                     onPress={() => handleDelete(item.id, item.name)}
                   >
-                    <Ionicons name="close" size={16} color="#94a3b8" />
+                    <Ionicons name="trash-outline" size={16} color="#94a3b8" />
                   </TouchableOpacity>
                 </View>
 
                 <View style={styles.cardFooter}>
                   <Text style={styles.balanceLabel}>
-                    {isCredit ? (isNegative ? 'Deuda actual:' : 'Saldo:') : 'Saldo disponible:'}
+                    {isItemCredit ? (isNegative ? 'Deuda actual:' : 'Saldo:') : 'Saldo disponible:'}
                   </Text>
                   <Text
                     style={[
                       styles.balanceAmount,
-                      isCredit && styles.creditBalanceAmount,
+                      isItemCredit && styles.creditBalanceAmount,
                       isNegative && styles.negativeBalance,
                     ]}
                   >
@@ -260,16 +295,73 @@ export const AccountsScreen = () => {
       <Modal visible={isModalVisible} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
           <View style={styles.wizardContainer}>
-            {/* Header del Wizard */}
+            {/* Header del Wizard con Progreso */}
             <View style={styles.wizardHeader}>
               <View style={styles.progressContainer}>
-                <View style={[styles.progressBar, { width: `${(step / 3) * 100}%` }]} />
+                <View
+                  style={[
+                    styles.progressBar,
+                    { width: `${(step / totalSteps) * 100}%` },
+                  ]}
+                />
               </View>
               <View style={styles.stepIndicatorRow}>
-                <Text style={styles.stepText}>Paso {step} de 3</Text>
-                <TouchableOpacity onPress={resetForm}>
+                <View style={styles.stepBadge}>
+                  <Text style={styles.stepText}>
+                    Paso {step} de {totalSteps}
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={resetForm} style={styles.closeWizardBtn}>
+                  <Ionicons name="close" size={18} color="#94a3b8" />
                   <Text style={styles.closeWizardText}>Cancelar</Text>
                 </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Vista previa de Tarjeta Digital en vivo */}
+            <View style={styles.previewSection}>
+              <View style={[styles.virtualCard, { borderColor: selectedConfig.color }]}>
+                <View style={styles.virtualCardTop}>
+                  <View style={styles.virtualCardChip}>
+                    <Ionicons name="hardware-chip-outline" size={26} color="#fbbf24" />
+                    <Ionicons name="radio-outline" size={16} color="#94a3b8" style={{ marginLeft: 8 }} />
+                  </View>
+                  <View style={[styles.virtualCardTypeBadge, { backgroundColor: `${selectedConfig.color}25` }]}>
+                    <Ionicons name={selectedConfig.iconName} size={14} color={selectedConfig.color} />
+                    <Text style={[styles.virtualCardTypeLabel, { color: selectedConfig.color }]}>
+                      {selectedConfig.label}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.virtualCardMiddle}>
+                  <Text style={styles.virtualCardName} numberOfLines={1}>
+                    {name.trim() || 'Nombre de la Cuenta'}
+                  </Text>
+                </View>
+
+                <View style={styles.virtualCardBottom}>
+                  <View>
+                    <Text style={styles.virtualCardBalanceTitle}>
+                      {isCredit ? 'Crédito Disponible' : 'Saldo Disponible'}
+                    </Text>
+                    <Text style={styles.virtualCardBalanceAmount}>
+                      $
+                      {isCredit
+                        ? calculatedAvailable.toFixed(2)
+                        : (parseFloat(balance) || 0).toFixed(2)}{' '}
+                      MXN
+                    </Text>
+                  </View>
+                  {isCredit && numUsed > 0 && (
+                    <View style={styles.virtualCardDebt}>
+                      <Text style={styles.virtualCardDebtTitle}>Deuda</Text>
+                      <Text style={styles.virtualCardDebtAmount}>
+                        -${numUsed.toFixed(2)}
+                      </Text>
+                    </View>
+                  )}
+                </View>
               </View>
             </View>
 
@@ -278,32 +370,36 @@ export const AccountsScreen = () => {
               {step === 1 && (
                 <View style={styles.stepView}>
                   <View style={styles.stepIconBadge}>
-                    <Ionicons name="pricetag-outline" size={32} color="#6366f1" />
+                    <Ionicons name="pricetag-outline" size={28} color="#6366f1" />
                   </View>
                   <Text style={styles.stepTitle}>¿Cómo quieres llamar a esta cuenta?</Text>
                   <Text style={styles.stepSubtitle}>
-                    Elige un nombre claro para reconocerla en tus movimientos.
+                    Elige un nombre descriptivo para identificarla en tus movimientos diarios.
                   </Text>
 
                   <TextInput
                     style={styles.largeInput}
-                    placeholder="Ej. BBVA Nómina, Nu Crédito, Cartera"
+                    placeholder="Ej. BBVA Nómina, Nu Crédito, Efectivo"
                     placeholderTextColor="#64748b"
                     value={name}
                     onChangeText={setName}
                     autoFocus
                   />
 
+                  <Text style={styles.suggestionsHeader}>Sugerencias rápidas:</Text>
                   <View style={styles.quickSuggestionsRow}>
-                    {['BBVA Nómina', 'Nu Crédito', 'Santander', 'Efectivo'].map((sug) => (
-                      <TouchableOpacity
-                        key={sug}
-                        style={styles.suggestionChip}
-                        onPress={() => setName(sug)}
-                      >
-                        <Text style={styles.suggestionText}>{sug}</Text>
-                      </TouchableOpacity>
-                    ))}
+                    {['BBVA Nómina', 'Nu Crédito', 'Santander LikeU', 'Efectivo Diario', 'Mercado Pago'].map(
+                      (sug) => (
+                        <TouchableOpacity
+                          key={sug}
+                          style={styles.suggestionChip}
+                          onPress={() => setName(sug)}
+                        >
+                          <Ionicons name="flash-outline" size={13} color="#6366f1" style={{ marginRight: 4 }} />
+                          <Text style={styles.suggestionText}>{sug}</Text>
+                        </TouchableOpacity>
+                      ),
+                    )}
                   </View>
                 </View>
               )}
@@ -312,11 +408,11 @@ export const AccountsScreen = () => {
               {step === 2 && (
                 <View style={styles.stepView}>
                   <View style={styles.stepIconBadge}>
-                    <Ionicons name="options-outline" size={32} color="#6366f1" />
+                    <Ionicons name="options-outline" size={28} color="#6366f1" />
                   </View>
                   <Text style={styles.stepTitle}>¿Qué tipo de cuenta es &quot;{name}&quot;?</Text>
                   <Text style={styles.stepSubtitle}>
-                    Esto define si representa dinero líquido disponible o una línea de crédito.
+                    Selecciona la opción para adaptar la gestión de saldos y créditos.
                   </Text>
 
                   <View style={styles.typeCardsList}>
@@ -329,23 +425,32 @@ export const AccountsScreen = () => {
                           style={[styles.typeOptionCard, isSelected && styles.typeOptionCardActive]}
                           onPress={() => setType(t)}
                         >
-                          <Ionicons
-                            name={cfg.iconName}
-                            size={24}
-                            color={isSelected ? '#6366f1' : cfg.color}
-                          />
+                          <View
+                            style={[
+                              styles.typeOptionIconBox,
+                              { backgroundColor: isSelected ? `${cfg.color}33` : '#1e293b' },
+                            ]}
+                          >
+                            <Ionicons
+                              name={cfg.iconName}
+                              size={24}
+                              color={isSelected ? cfg.color : '#94a3b8'}
+                            />
+                          </View>
                           <View style={styles.typeOptionInfo}>
                             <Text
                               style={[
                                 styles.typeOptionLabel,
-                                isSelected && styles.typeOptionLabelActive,
+                                isSelected && { color: cfg.color },
                               ]}
                             >
                               {cfg.label}
                             </Text>
                             <Text style={styles.typeOptionDesc}>{cfg.description}</Text>
                           </View>
-                          {isSelected && <Ionicons name="checkmark-circle" size={20} color="#6366f1" />}
+                          {isSelected && (
+                            <Ionicons name="checkmark-circle" size={22} color={cfg.color} />
+                          )}
                         </TouchableOpacity>
                       );
                     })}
@@ -353,86 +458,193 @@ export const AccountsScreen = () => {
                 </View>
               )}
 
-              {/* PASO 3: Balances y Crédito */}
+              {/* PASO 3: Saldo Disponible (Standard) O Límite de Crédito (Crédito) */}
               {step === 3 && (
                 <View style={styles.stepView}>
-                  {type === 'CREDIT_CARD' ? (
+                  {!isCredit ? (
                     <>
                       <View style={styles.stepIconBadge}>
-                        <Ionicons name="card-outline" size={32} color="#0891b2" />
+                        <Ionicons name="cash-outline" size={28} color="#10b981" />
                       </View>
-                      <Text style={styles.stepTitle}>Configura tu Tarjeta de Crédito</Text>
+                      <Text style={styles.stepTitle}>¿Cuál es tu saldo actual en {name}?</Text>
                       <Text style={styles.stepSubtitle}>
-                        Registra tu límite total y si ya tienes algún saldo gastado a la fecha.
+                        Ingresa el dinero líquido disponible que tienes en esta cuenta al día de hoy.
                       </Text>
 
-                      {/* Límite de Crédito */}
-                      <Text style={styles.inputLabel}>Límite de Crédito total (Opcional)</Text>
-                      <TextInput
-                        style={styles.largeInput}
-                        placeholder="$ 0.00"
-                        placeholderTextColor="#64748b"
-                        keyboardType="numeric"
-                        value={creditLimit}
-                        onChangeText={setCreditLimit}
-                        autoFocus
-                      />
+                      <View style={styles.amountInputHeroContainer}>
+                        <Text style={styles.currencySymbol}>$</Text>
+                        <TextInput
+                          style={styles.heroAmountInput}
+                          placeholder="0.00"
+                          placeholderTextColor="#64748b"
+                          keyboardType="numeric"
+                          value={balance}
+                          onChangeText={setBalance}
+                          autoFocus
+                        />
+                        <Text style={styles.currencyCode}>{currency}</Text>
+                      </View>
 
-                      {/* Saldo utilizado hasta el momento */}
-                      <Text style={styles.inputLabel}>Saldo utilizado / Deuda actual (Opcional)</Text>
-                      <TextInput
-                        style={styles.largeInput}
-                        placeholder="$ 0.00"
-                        placeholderTextColor="#64748b"
-                        keyboardType="numeric"
-                        value={usedBalance}
-                        onChangeText={setUsedBalance}
-                      />
-
-                      {/* Resumen dinámico */}
-                      {numCreditLimit > 0 && (
-                        <View style={styles.creditSummaryBox}>
-                          <View style={styles.summaryRow}>
-                            <Text style={styles.summaryLabel}>Límite total:</Text>
-                            <Text style={styles.summaryVal}>${numCreditLimit.toFixed(2)} MXN</Text>
-                          </View>
-                          <View style={styles.summaryRow}>
-                            <Text style={styles.summaryLabel}>Saldo utilizado:</Text>
-                            <Text style={[styles.summaryVal, { color: '#ef4444' }]}>
-                              -${numUsed.toFixed(2)} MXN
+                      <View style={styles.quickAmountRow}>
+                        {['0', '500', '1000', '5000', '10000'].map((val) => (
+                          <TouchableOpacity
+                            key={val}
+                            style={styles.quickAmountChip}
+                            onPress={() => setBalance(val)}
+                          >
+                            <Text style={styles.quickAmountText}>
+                              {val === '0' ? '$0' : `+$${val}`}
                             </Text>
-                          </View>
-                          <View style={[styles.summaryRow, styles.summaryTotalRow]}>
-                            <Text style={styles.summaryTotalLabel}>Crédito disponible para gastar:</Text>
-                            <Text style={styles.summaryTotalVal}>
-                              ${calculatedAvailable.toFixed(2)} MXN
-                            </Text>
-                          </View>
-                        </View>
-                      )}
+                          </TouchableOpacity>
+                        ))}
+                      </View>
                     </>
                   ) : (
                     <>
                       <View style={styles.stepIconBadge}>
-                        <Ionicons name="cash-outline" size={32} color="#10b981" />
+                        <Ionicons name="card-outline" size={28} color="#0891b2" />
                       </View>
-                      <Text style={styles.stepTitle}>¿Cuál es tu saldo actual en {name}?</Text>
+                      <Text style={styles.stepTitle}>Límite de Crédito Total</Text>
                       <Text style={styles.stepSubtitle}>
-                        Ingresa el dinero que tienes en esta cuenta al día de hoy.
+                        Ingresa la línea de crédito autorizada o límite total de tu tarjeta.
                       </Text>
 
-                      <Text style={styles.inputLabel}>Saldo disponible ({currency})</Text>
-                      <TextInput
-                        style={[styles.largeInput, styles.heroBalanceInput]}
-                        placeholder="0.00"
-                        placeholderTextColor="#64748b"
-                        keyboardType="numeric"
-                        value={balance}
-                        onChangeText={setBalance}
-                        autoFocus
-                      />
+                      <View style={styles.amountInputHeroContainer}>
+                        <Text style={styles.currencySymbol}>$</Text>
+                        <TextInput
+                          style={styles.heroAmountInput}
+                          placeholder="0.00"
+                          placeholderTextColor="#64748b"
+                          keyboardType="numeric"
+                          value={creditLimit}
+                          onChangeText={setCreditLimit}
+                          autoFocus
+                        />
+                        <Text style={styles.currencyCode}>{currency}</Text>
+                      </View>
+
+                      <View style={styles.quickAmountRow}>
+                        {['5000', '10000', '20000', '50000'].map((val) => (
+                          <TouchableOpacity
+                            key={val}
+                            style={styles.quickAmountChip}
+                            onPress={() => setCreditLimit(val)}
+                          >
+                            <Text style={styles.quickAmountText}>${val}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
                     </>
                   )}
+                </View>
+              )}
+
+              {/* PASO 4 (Para Crédito): Saldo Utilizado / Deuda Actual */}
+              {step === 4 && isCredit && (
+                <View style={styles.stepView}>
+                  <View style={styles.stepIconBadge}>
+                    <Ionicons name="trending-down-outline" size={28} color="#ef4444" />
+                  </View>
+                  <Text style={styles.stepTitle}>Saldo Utilizado hasta el momento</Text>
+                  <Text style={styles.stepSubtitle}>
+                    Si ya realizaste compras que tienes pendientes de pagar, regístralas aquí (opcional).
+                  </Text>
+
+                  <View style={styles.amountInputHeroContainer}>
+                    <Text style={[styles.currencySymbol, { color: '#ef4444' }]}>-$</Text>
+                    <TextInput
+                      style={[styles.heroAmountInput, { color: '#ef4444' }]}
+                      placeholder="0.00"
+                      placeholderTextColor="#64748b"
+                      keyboardType="numeric"
+                      value={usedBalance}
+                      onChangeText={setUsedBalance}
+                      autoFocus
+                    />
+                    <Text style={styles.currencyCode}>{currency}</Text>
+                  </View>
+
+                  <View style={styles.creditSummaryBox}>
+                    <View style={styles.summaryRow}>
+                      <Text style={styles.summaryLabel}>Límite asignado:</Text>
+                      <Text style={styles.summaryVal}>${numCreditLimit.toFixed(2)} MXN</Text>
+                    </View>
+                    <View style={styles.summaryRow}>
+                      <Text style={styles.summaryLabel}>Saldo deudor / utilizado:</Text>
+                      <Text style={[styles.summaryVal, { color: '#ef4444' }]}>
+                        -${numUsed.toFixed(2)} MXN
+                      </Text>
+                    </View>
+                    <View style={[styles.summaryRow, styles.summaryTotalRow]}>
+                      <Text style={styles.summaryTotalLabel}>Crédito disponible para compras:</Text>
+                      <Text style={styles.summaryTotalVal}>
+                        ${calculatedAvailable.toFixed(2)} MXN
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+
+              {/* PASO FINAL: Resumen & Confirmación (Paso 4 para estándar, Paso 5 para crédito) */}
+              {((!isCredit && step === 4) || (isCredit && step === 5)) && (
+                <View style={styles.stepView}>
+                  <View style={styles.stepIconBadge}>
+                    <Ionicons name="checkmark-done-circle-outline" size={28} color="#10b981" />
+                  </View>
+                  <Text style={styles.stepTitle}>Confirma tu nueva cuenta</Text>
+                  <Text style={styles.stepSubtitle}>
+                    Revisa que todos los datos sean correctos antes de guardar.
+                  </Text>
+
+                  <View style={styles.confirmationCard}>
+                    <View style={styles.confirmationRow}>
+                      <Text style={styles.confirmationLabel}>Nombre:</Text>
+                      <Text style={styles.confirmationValue}>{name.trim()}</Text>
+                    </View>
+                    <View style={styles.confirmationRow}>
+                      <Text style={styles.confirmationLabel}>Tipo de cuenta:</Text>
+                      <View style={styles.confirmationTypeBadge}>
+                        <Ionicons name={selectedConfig.iconName} size={14} color={selectedConfig.color} />
+                        <Text style={[styles.confirmationTypeValue, { color: selectedConfig.color }]}>
+                          {selectedConfig.label}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={styles.confirmationRow}>
+                      <Text style={styles.confirmationLabel}>Moneda:</Text>
+                      <Text style={styles.confirmationValue}>{currency}</Text>
+                    </View>
+
+                    <View style={styles.confirmationDivider} />
+
+                    {!isCredit ? (
+                      <View style={styles.confirmationRow}>
+                        <Text style={styles.confirmationLabel}>Saldo inicial disponible:</Text>
+                        <Text style={[styles.confirmationValue, styles.confirmationHeroBalance]}>
+                          ${(parseFloat(balance) || 0).toFixed(2)} {currency}
+                        </Text>
+                      </View>
+                    ) : (
+                      <>
+                        <View style={styles.confirmationRow}>
+                          <Text style={styles.confirmationLabel}>Límite de crédito:</Text>
+                          <Text style={styles.confirmationValue}>${numCreditLimit.toFixed(2)} {currency}</Text>
+                        </View>
+                        <View style={styles.confirmationRow}>
+                          <Text style={styles.confirmationLabel}>Saldo utilizado inicial:</Text>
+                          <Text style={[styles.confirmationValue, { color: '#ef4444' }]}>
+                            -${numUsed.toFixed(2)} {currency}
+                          </Text>
+                        </View>
+                        <View style={styles.confirmationRow}>
+                          <Text style={styles.confirmationLabel}>Crédito disponible:</Text>
+                          <Text style={[styles.confirmationValue, styles.confirmationHeroBalance]}>
+                            ${calculatedAvailable.toFixed(2)} {currency}
+                          </Text>
+                        </View>
+                      </>
+                    )}
+                  </View>
                 </View>
               )}
             </ScrollView>
@@ -442,18 +654,20 @@ export const AccountsScreen = () => {
               {step > 1 ? (
                 <TouchableOpacity
                   style={styles.backButton}
-                  onPress={() => setStep((prev) => (prev - 1) as any)}
+                  onPress={handlePrevStep}
                   disabled={isSubmitting}
                 >
-                  <Text style={styles.backButtonText}>← Atrás</Text>
+                  <Ionicons name="arrow-back" size={16} color="#94a3b8" style={{ marginRight: 6 }} />
+                  <Text style={styles.backButtonText}>Atrás</Text>
                 </TouchableOpacity>
               ) : (
                 <View style={{ width: 80 }} />
               )}
 
-              {step < 3 ? (
+              {step < totalSteps ? (
                 <TouchableOpacity style={styles.primaryButton} onPress={handleNextStep}>
-                  <Text style={styles.primaryButtonText}>Siguiente →</Text>
+                  <Text style={styles.primaryButtonText}>Siguiente</Text>
+                  <Ionicons name="arrow-forward" size={16} color="#fff" style={{ marginLeft: 6 }} />
                 </TouchableOpacity>
               ) : (
                 <TouchableOpacity
@@ -464,7 +678,10 @@ export const AccountsScreen = () => {
                   {isSubmitting ? (
                     <ActivityIndicator color="#fff" />
                   ) : (
-                    <Text style={styles.primaryButtonText}>Guardar Cuenta</Text>
+                    <>
+                      <Ionicons name="checkmark-circle" size={18} color="#fff" style={{ marginRight: 6 }} />
+                      <Text style={styles.primaryButtonText}>Crear Cuenta</Text>
+                    </>
                   )}
                 </TouchableOpacity>
               )}
@@ -503,10 +720,15 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#6366f1',
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 10,
+  },
+  btnIcon: {
+    marginRight: 6,
   },
   addButtonText: {
     color: '#fff',
@@ -525,9 +747,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 32,
   },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: 16,
+  emptyIconBadge: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#1e293b',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#334155',
   },
   emptyText: {
     color: '#f8fafc',
@@ -544,6 +773,8 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   emptyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#6366f1',
     paddingHorizontal: 20,
     paddingVertical: 12,
@@ -582,9 +813,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12,
   },
-  cardIcon: {
-    fontSize: 20,
-  },
   accountInfo: {
     flex: 1,
   },
@@ -604,11 +832,6 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     padding: 8,
-  },
-  deleteText: {
-    color: '#64748b',
-    fontSize: 16,
-    fontWeight: 'bold',
   },
   cardFooter: {
     flexDirection: 'row',
@@ -645,11 +868,11 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     paddingTop: 16,
     paddingBottom: 24,
-    maxHeight: '92%',
+    maxHeight: '94%',
   },
   wizardHeader: {
-    paddingHorizontal: 24,
-    paddingBottom: 16,
+    paddingHorizontal: 20,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#334155',
   },
@@ -657,7 +880,7 @@ const styles = StyleSheet.create({
     height: 4,
     backgroundColor: '#334155',
     borderRadius: 2,
-    marginBottom: 12,
+    marginBottom: 10,
     overflow: 'hidden',
   },
   progressBar: {
@@ -670,90 +893,172 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  stepBadge: {
+    backgroundColor: '#0f172a',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
   stepText: {
-    color: '#94a3b8',
-    fontSize: 13,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+    color: '#818cf8',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  closeWizardBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
   },
   closeWizardText: {
     color: '#94a3b8',
-    fontSize: 14,
+    fontSize: 13,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  previewSection: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
+  virtualCard: {
+    backgroundColor: '#0f172a',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1.5,
+    minHeight: 140,
+    justifyContent: 'space-between',
+  },
+  virtualCardTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  virtualCardChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  virtualCardTypeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
+  },
+  virtualCardTypeLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  virtualCardMiddle: {
+    marginVertical: 10,
+  },
+  virtualCardName: {
+    color: '#f8fafc',
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  virtualCardBottom: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+  },
+  virtualCardBalanceTitle: {
+    color: '#64748b',
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  virtualCardBalanceAmount: {
+    color: '#f8fafc',
+    fontSize: 17,
+    fontWeight: '800',
+    marginTop: 2,
+  },
+  virtualCardDebt: {
+    alignItems: 'flex-end',
+  },
+  virtualCardDebtTitle: {
+    color: '#ef4444',
+    fontSize: 11,
     fontWeight: '600',
   },
+  virtualCardDebtAmount: {
+    color: '#ef4444',
+    fontSize: 14,
+    fontWeight: '700',
+    marginTop: 2,
+  },
   wizardScrollContent: {
-    paddingHorizontal: 24,
-    paddingTop: 20,
+    paddingHorizontal: 20,
+    paddingTop: 16,
     paddingBottom: 16,
   },
   stepView: {
-    minHeight: 320,
+    minHeight: 280,
   },
   stepIconBadge: {
-    width: 48,
-    height: 48,
+    width: 44,
+    height: 44,
     borderRadius: 12,
     backgroundColor: '#0f172a',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: '#334155',
   },
   stepTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#f8fafc',
-    marginBottom: 8,
-    lineHeight: 28,
+    marginBottom: 6,
+    lineHeight: 26,
   },
   stepSubtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#94a3b8',
-    lineHeight: 20,
-    marginBottom: 24,
-  },
-  inputLabel: {
-    color: '#cbd5e1',
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
+    lineHeight: 18,
+    marginBottom: 16,
   },
   largeInput: {
     backgroundColor: '#0f172a',
     borderRadius: 12,
     padding: 16,
     color: '#f8fafc',
-    fontSize: 18,
+    fontSize: 16,
     borderWidth: 1,
     borderColor: '#334155',
     marginBottom: 16,
   },
-  heroBalanceInput: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    color: '#10b981',
-    paddingVertical: 20,
+  suggestionsHeader: {
+    color: '#64748b',
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 8,
   },
   quickSuggestionsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginTop: 8,
   },
   suggestionChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#0f172a',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: '#334155',
   },
   suggestionText: {
     color: '#94a3b8',
-    fontSize: 13,
+    fontSize: 12,
   },
   typeCardsList: {
     gap: 10,
@@ -763,7 +1068,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#0f172a',
-    padding: 14,
+    padding: 12,
     borderRadius: 12,
     borderWidth: 1.5,
     borderColor: '#334155',
@@ -772,9 +1077,13 @@ const styles = StyleSheet.create({
     borderColor: '#6366f1',
     backgroundColor: '#1e1b4b33',
   },
-  typeOptionIcon: {
-    fontSize: 24,
-    marginRight: 14,
+  typeOptionIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
   typeOptionInfo: {
     flex: 1,
@@ -785,24 +1094,67 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 2,
   },
-  typeOptionLabelActive: {
-    color: '#818cf8',
-  },
   typeOptionDesc: {
     color: '#94a3b8',
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: 11,
+    lineHeight: 15,
   },
-  checkmarkIcon: {
-    color: '#818cf8',
-    fontSize: 18,
+  amountInputHeroContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0f172a',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: '#334155',
+    marginBottom: 16,
+  },
+  currencySymbol: {
+    color: '#6366f1',
+    fontSize: 28,
+    fontWeight: '800',
+    marginRight: 6,
+  },
+  heroAmountInput: {
+    fontSize: 32,
     fontWeight: 'bold',
-    marginLeft: 8,
+    color: '#f8fafc',
+    textAlign: 'center',
+    minWidth: 140,
+    padding: 0,
+  },
+  currencyCode: {
+    color: '#64748b',
+    fontSize: 14,
+    fontWeight: '700',
+    marginLeft: 6,
+  },
+  quickAmountRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  quickAmountChip: {
+    backgroundColor: '#0f172a',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  quickAmountText: {
+    color: '#94a3b8',
+    fontSize: 13,
+    fontWeight: '600',
   },
   creditSummaryBox: {
     backgroundColor: '#0f172a',
     borderRadius: 12,
-    padding: 16,
+    padding: 14,
     borderWidth: 1,
     borderColor: '#0891b244',
     marginTop: 8,
@@ -819,7 +1171,7 @@ const styles = StyleSheet.create({
   },
   summaryVal: {
     color: '#f8fafc',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
   },
   summaryTotalRow: {
@@ -830,46 +1182,90 @@ const styles = StyleSheet.create({
   },
   summaryTotalLabel: {
     color: '#38bdf8',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: 'bold',
   },
   summaryTotalVal: {
     color: '#38bdf8',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: 'bold',
+  },
+  confirmationCard: {
+    backgroundColor: '#0f172a',
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#334155',
+    gap: 12,
+  },
+  confirmationRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  confirmationLabel: {
+    color: '#94a3b8',
+    fontSize: 13,
+  },
+  confirmationValue: {
+    color: '#f8fafc',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  confirmationTypeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  confirmationTypeValue: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  confirmationDivider: {
+    height: 1,
+    backgroundColor: '#334155',
+    marginVertical: 4,
+  },
+  confirmationHeroBalance: {
+    color: '#10b981',
+    fontSize: 16,
   },
   wizardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 16,
+    paddingHorizontal: 20,
+    paddingTop: 14,
     borderTopWidth: 1,
     borderTopColor: '#334155',
   },
   backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
   },
   backButtonText: {
     color: '#94a3b8',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: 'bold',
   },
   primaryButton: {
-    backgroundColor: '#6366f1',
-    paddingVertical: 14,
-    paddingHorizontal: 28,
-    borderRadius: 10,
+    flexDirection: 'row',
     alignItems: 'center',
-    minWidth: 140,
+    justifyContent: 'center',
+    backgroundColor: '#6366f1',
+    paddingVertical: 13,
+    paddingHorizontal: 22,
+    borderRadius: 10,
+    minWidth: 130,
   },
   finishButton: {
     backgroundColor: '#10b981',
   },
   primaryButtonText: {
     color: '#fff',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: 'bold',
   },
 });

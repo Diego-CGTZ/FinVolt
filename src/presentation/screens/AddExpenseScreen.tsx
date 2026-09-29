@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAccounts } from '../../application/state/AccountsContext';
 import { useTransactions } from '../../application/state/TransactionsContext';
 import { toMinorUnits, toDecimal, Transaction } from '../../domain/models/Transaction';
+import type { Account } from '../../domain/models/Account';
 
 type MovementTypeKey = 'EXPENSE' | 'INCOME' | 'TRANSFER' | 'CARD_PAYMENT';
 type PaymentMethodChoice = 'CARD' | 'CASH';
@@ -33,8 +34,9 @@ export const AddExpenseScreen = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
-  // Wizard state: 1: Tipo, 2: Monto, 3: Cuentas/Método, 4: Detalles opcionales, 5: Resumen
-  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
+  // Wizard state (5 pasos exactos y consistentes):
+  // 1: Tipo, 2: Monto, 3: Cuentas, 4: Comercio y Notas, 5: Resumen
+  const [step, setStep] = useState<number>(1);
 
   // Form state
   const [movementType, setMovementType] = useState<MovementTypeKey>('EXPENSE');
@@ -46,16 +48,24 @@ export const AddExpenseScreen = () => {
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const TOTAL_STEPS = 5;
+
   // Clasificación de cuentas
-  const bankAndDebitAccounts = accounts.filter((a) => a.type === 'CHECKING' || a.type === 'SAVINGS' || a.type === 'DIGITAL_WALLET');
+  const bankAndDebitAccounts = accounts.filter(
+    (a) => a.type === 'CHECKING' || a.type === 'SAVINGS' || a.type === 'DIGITAL_WALLET',
+  );
   const cashAccounts = accounts.filter((a) => a.type === 'CASH');
   const creditCards = accounts.filter((a) => a.type === 'CREDIT_CARD');
 
   // Cuentas disponibles para pagar según el método elegido en "Pagar Tarjeta"
   const paymentSourceAccounts =
     paymentMethodChoice === 'CASH'
-      ? cashAccounts.length > 0 ? cashAccounts : accounts.filter(a => a.type !== 'CREDIT_CARD')
-      : bankAndDebitAccounts.length > 0 ? bankAndDebitAccounts : accounts.filter(a => a.type !== 'CREDIT_CARD');
+      ? cashAccounts.length > 0
+        ? cashAccounts
+        : accounts.filter((a) => a.type !== 'CREDIT_CARD')
+      : bankAndDebitAccounts.length > 0
+      ? bankAndDebitAccounts
+      : accounts.filter((a) => a.type !== 'CREDIT_CARD');
 
   // Selección efectiva de cuentas
   const effectiveSourceAccountId =
@@ -114,7 +124,7 @@ export const AddExpenseScreen = () => {
 
   const openEditModal = (tx: Transaction) => {
     setEditingTransaction(tx);
-    setStep(2); // Inicia en el monto para edición rápida
+    setStep(1);
 
     const isCredit = accounts.find((a) => a.id === tx.accountId)?.type === 'CREDIT_CARD';
     const isCardPay =
@@ -170,6 +180,12 @@ export const AddExpenseScreen = () => {
     }
   };
 
+  const handlePrevStep = () => {
+    if (step > 1) {
+      setStep((prev) => prev - 1);
+    }
+  };
+
   const handleSave = async () => {
     const parsedAmount = parseFloat(amount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
@@ -184,21 +200,26 @@ export const AddExpenseScreen = () => {
       // CASO: EDICIÓN DE MOVIMIENTO EXISTENTE
       if (editingTransaction) {
         await updateTransaction(editingTransaction.id, {
+          accountId: effectiveSourceAccountId,
+          type: movementType === 'CARD_PAYMENT' ? 'TRANSFER' : (movementType as any),
           amountMinor,
           merchant: merchant.trim() || null,
           merchantRaw: merchant.trim() || null,
           description: description.trim() || null,
         });
 
-        // Si es transferencia vinculada, actualizar el monto en la contraria también
+        // Si es transferencia vinculada, actualizar el monto y cuenta en la contraria también
         if (editingTransaction.linkedTransactionId) {
           await updateTransaction(editingTransaction.linkedTransactionId, {
             amountMinor,
+            accountId: effectiveDestinationAccountId,
+            description: description.trim() || null,
           });
         }
 
+        await loadTransactions();
         resetForm();
-        Alert.alert('¡Movimiento actualizado!', 'Los cambios se guardaron correctamente.');
+        Alert.alert('Movimiento actualizado', 'Los cambios se guardaron correctamente.');
         return;
       }
 
@@ -214,6 +235,7 @@ export const AddExpenseScreen = () => {
           currency: selectedSourceAccount.currency,
           occurredAt: new Date(),
           merchantRaw: merchant.trim() || undefined,
+          merchant: merchant.trim() || undefined,
           description: description.trim() || undefined,
           source: 'MANUAL',
         });
@@ -233,6 +255,7 @@ export const AddExpenseScreen = () => {
           currency: selectedSourceAccount.currency,
           occurredAt: new Date(),
           merchantRaw: merchant.trim() || undefined,
+          merchant: merchant.trim() || undefined,
           description: description.trim() || undefined,
           source: 'MANUAL',
         });
@@ -338,11 +361,72 @@ export const AddExpenseScreen = () => {
   };
 
   const finishSuccess = (msg: string) => {
-    Alert.alert('¡Listo!', msg);
+    Alert.alert('Operación exitosa', msg);
     resetForm();
   };
 
   const parsedAmountPreview = parseFloat(amount) || 0;
+
+  // Componente de tarjeta de cuenta consistente (100% fija, sin crecer/decrecer al hacer clic)
+  const renderConsistentAccountItem = (
+    account: Account,
+    isSelected: boolean,
+    onSelect: () => void,
+  ) => {
+    const isCredit = account.type === 'CREDIT_CARD';
+    const iconName = isCredit
+      ? 'card-outline'
+      : account.type === 'SAVINGS'
+      ? 'trending-up-outline'
+      : account.type === 'CASH'
+      ? 'cash-outline'
+      : account.type === 'DIGITAL_WALLET'
+      ? 'phone-portrait-outline'
+      : 'business-outline';
+
+    const iconColor = isCredit
+      ? '#0891b2'
+      : account.type === 'SAVINGS'
+      ? '#10b981'
+      : account.type === 'CASH'
+      ? '#f59e0b'
+      : account.type === 'DIGITAL_WALLET'
+      ? '#a855f7'
+      : '#6366f1';
+
+    return (
+      <TouchableOpacity
+        key={account.id}
+        style={[
+          styles.consistentAccountCard,
+          isSelected && styles.consistentAccountCardSelected,
+        ]}
+        onPress={onSelect}
+        activeOpacity={0.8}
+      >
+        <View style={[styles.consistentAccountIconBox, { backgroundColor: `${iconColor}22` }]}>
+          <Ionicons name={iconName} size={20} color={iconColor} />
+        </View>
+
+        <View style={styles.consistentAccountInfo}>
+          <Text style={[styles.consistentAccountName, isSelected && styles.consistentAccountNameSelected]}>
+            {account.name}
+          </Text>
+          <Text style={styles.consistentAccountSub}>
+            {isCredit ? 'Línea de Crédito' : `Saldo: $${account.initialBalance.toFixed(2)} ${account.currency}`}
+          </Text>
+        </View>
+
+        <View style={styles.consistentRadioBox}>
+          <Ionicons
+            name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
+            size={22}
+            color={isSelected ? '#6366f1' : '#475569'}
+          />
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -350,10 +434,11 @@ export const AddExpenseScreen = () => {
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>Movimientos</Text>
-          <Text style={styles.subtitle}>Toca cualquier movimiento para editarlo</Text>
+          <Text style={styles.subtitle}>Toca cualquier movimiento para editarlo paso a paso</Text>
         </View>
         <TouchableOpacity style={styles.addButton} onPress={() => openCreateModal('EXPENSE')}>
-          <Text style={styles.addButtonText}>+ Registrar</Text>
+          <Ionicons name="add" size={18} color="#fff" style={styles.btnIcon} />
+          <Text style={styles.addButtonText}>Registrar</Text>
         </TouchableOpacity>
       </View>
 
@@ -364,8 +449,10 @@ export const AddExpenseScreen = () => {
         </View>
       ) : transactions.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Ionicons name="receipt-outline" size={48} color="#6366f1" />
-          <Text style={styles.emptyText}>No hay movimientos registrados.</Text>
+          <View style={styles.emptyIconBadge}>
+            <Ionicons name="receipt-outline" size={44} color="#6366f1" />
+          </View>
+          <Text style={styles.emptyText}>No hay movimientos registrados</Text>
           <Text style={styles.emptySubtext}>
             Registra tu primer gasto, ingreso, transferencia o pago de tarjeta.
           </Text>
@@ -373,6 +460,7 @@ export const AddExpenseScreen = () => {
             style={styles.emptyButton}
             onPress={() => openCreateModal('EXPENSE')}
           >
+            <Ionicons name="add-circle-outline" size={18} color="#fff" style={styles.btnIcon} />
             <Text style={styles.emptyButtonText}>Registrar mi primer movimiento</Text>
           </TouchableOpacity>
         </View>
@@ -431,25 +519,33 @@ export const AddExpenseScreen = () => {
                     </Text>
                   </View>
                   <Text style={styles.txSub}>
-                    {acc?.name || 'Cuenta'} {isCreditCard ? '(Tarjeta Crédito)' : ''} • {dateStr}
+                    {acc?.name || 'Cuenta'} {isCreditCard ? '(Crédito)' : ''} • {dateStr}
                     {item.description && item.merchant ? ` • ${item.description}` : ''}
                   </Text>
                 </View>
 
                 <View style={styles.txRight}>
-                  <Text
-                    style={[
-                      styles.txAmount,
-                      isCardPayment && styles.amountCardPayment,
-                      !isCardPayment && isExpense && isCreditCard && styles.amountCreditExpense,
-                      !isCardPayment && isExpense && !isCreditCard && styles.amountExpense,
-                      !isCardPayment && isIncome && styles.amountIncome,
-                      !isCardPayment && isTransfer && styles.amountTransfer,
-                    ]}
-                  >
-                    {isExpense ? '-' : isIncome ? '+' : '⇄'} ${toDecimal(item.amountMinor).toFixed(2)}{' '}
-                    {item.currency}
-                  </Text>
+                  <View style={styles.txAmountRow}>
+                    {isExpense ? (
+                      <Ionicons name="arrow-down" size={13} color="#ef4444" style={{ marginRight: 2 }} />
+                    ) : isIncome ? (
+                      <Ionicons name="arrow-up" size={13} color="#10b981" style={{ marginRight: 2 }} />
+                    ) : (
+                      <Ionicons name="swap-horizontal" size={13} color="#3b82f6" style={{ marginRight: 2 }} />
+                    )}
+                    <Text
+                      style={[
+                        styles.txAmount,
+                        isCardPayment && styles.amountCardPayment,
+                        !isCardPayment && isExpense && isCreditCard && styles.amountCreditExpense,
+                        !isCardPayment && isExpense && !isCreditCard && styles.amountExpense,
+                        !isCardPayment && isIncome && styles.amountIncome,
+                        !isCardPayment && isTransfer && styles.amountTransfer,
+                      ]}
+                    >
+                      ${toDecimal(item.amountMinor).toFixed(2)} {item.currency}
+                    </Text>
+                  </View>
                   <View style={styles.editHintRow}>
                     <Ionicons name="pencil" size={11} color="#64748b" />
                     <Text style={styles.editHintText}>Editar</Text>
@@ -468,17 +564,45 @@ export const AddExpenseScreen = () => {
             {/* Header del Wizard */}
             <View style={styles.wizardHeader}>
               <View style={styles.progressContainer}>
-                <View style={[styles.progressBar, { width: `${(step / 5) * 100}%` }]} />
+                <View style={[styles.progressBar, { width: `${(step / TOTAL_STEPS) * 100}%` }]} />
               </View>
               <View style={styles.stepIndicatorRow}>
-                <Text style={styles.stepText}>
-                  {editingTransaction ? 'Editando Movimiento' : `Paso ${step} de 5`}
-                </Text>
+                <View style={styles.stepBadge}>
+                  <Text style={styles.stepText}>
+                    {editingTransaction ? `Editar: Paso ${step} de ${TOTAL_STEPS}` : `Paso ${step} de ${TOTAL_STEPS}`}
+                  </Text>
+                </View>
                 <TouchableOpacity onPress={resetForm} style={styles.closeWizardBtn}>
-                  <Ionicons name="close" size={20} color="#94a3b8" />
+                  <Ionicons name="close" size={18} color="#94a3b8" />
                   <Text style={styles.closeWizardText}>Cerrar</Text>
                 </TouchableOpacity>
               </View>
+
+              {/* Barra interactiva de pasos para salto rápido al editar */}
+              {editingTransaction && (
+                <View style={styles.jumpStepsRow}>
+                  {Array.from({ length: TOTAL_STEPS }, (_, i) => i + 1).map((s) => (
+                    <TouchableOpacity
+                      key={s}
+                      style={[
+                        styles.jumpStepDot,
+                        step === s && styles.jumpStepDotActive,
+                        step > s && styles.jumpStepDotPassed,
+                      ]}
+                      onPress={() => setStep(s)}
+                    >
+                      <Text
+                        style={[
+                          styles.jumpStepText,
+                          step === s && styles.jumpStepTextActive,
+                        ]}
+                      >
+                        {s}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
             </View>
 
             <ScrollView contentContainerStyle={styles.wizardScrollContent}>
@@ -486,16 +610,21 @@ export const AddExpenseScreen = () => {
               {step === 1 && (
                 <View style={styles.stepView}>
                   <View style={styles.stepIconBadge}>
-                    <Ionicons name="flash-outline" size={28} color="#6366f1" />
+                    <Ionicons name="flash-outline" size={26} color="#6366f1" />
                   </View>
-                  <Text style={styles.stepTitle}>¿Qué tipo de movimiento deseas registrar?</Text>
+                  <Text style={styles.stepTitle}>
+                    {editingTransaction ? 'Tipo de movimiento' : '¿Qué tipo de movimiento deseas registrar?'}
+                  </Text>
                   <Text style={styles.stepSubtitle}>
-                    Selecciona la naturaleza de esta operación financiera.
+                    Selecciona la naturaleza financiera de esta operación.
                   </Text>
 
                   <View style={styles.typeOptionsList}>
                     <TouchableOpacity
-                      style={[styles.typeOptionBox, movementType === 'EXPENSE' && styles.typeOptionBoxExpenseActive]}
+                      style={[
+                        styles.typeOptionBox,
+                        movementType === 'EXPENSE' && styles.typeOptionBoxExpenseActive,
+                      ]}
                       onPress={() => setMovementType('EXPENSE')}
                     >
                       <Ionicons name="arrow-down-circle" size={24} color="#ef4444" />
@@ -503,11 +632,16 @@ export const AddExpenseScreen = () => {
                         <Text style={styles.typeOptionBoxTitle}>Gasto / Compra</Text>
                         <Text style={styles.typeOptionBoxDesc}>Dinero que sale de tu banco, tarjeta o efectivo</Text>
                       </View>
-                      {movementType === 'EXPENSE' && <Ionicons name="checkmark-circle" size={20} color="#ef4444" />}
+                      {movementType === 'EXPENSE' && (
+                        <Ionicons name="checkmark-circle" size={20} color="#ef4444" />
+                      )}
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                      style={[styles.typeOptionBox, movementType === 'INCOME' && styles.typeOptionBoxIncomeActive]}
+                      style={[
+                        styles.typeOptionBox,
+                        movementType === 'INCOME' && styles.typeOptionBoxIncomeActive,
+                      ]}
                       onPress={() => setMovementType('INCOME')}
                     >
                       <Ionicons name="arrow-up-circle" size={24} color="#10b981" />
@@ -515,11 +649,16 @@ export const AddExpenseScreen = () => {
                         <Text style={styles.typeOptionBoxTitle}>Ingreso</Text>
                         <Text style={styles.typeOptionBoxDesc}>Dinero que entra (sueldo, ventas, depósitos)</Text>
                       </View>
-                      {movementType === 'INCOME' && <Ionicons name="checkmark-circle" size={20} color="#10b981" />}
+                      {movementType === 'INCOME' && (
+                        <Ionicons name="checkmark-circle" size={20} color="#10b981" />
+                      )}
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                      style={[styles.typeOptionBox, movementType === 'TRANSFER' && styles.typeOptionBoxTransferActive]}
+                      style={[
+                        styles.typeOptionBox,
+                        movementType === 'TRANSFER' && styles.typeOptionBoxTransferActive,
+                      ]}
                       onPress={() => setMovementType('TRANSFER')}
                     >
                       <Ionicons name="swap-horizontal" size={24} color="#3b82f6" />
@@ -527,11 +666,16 @@ export const AddExpenseScreen = () => {
                         <Text style={styles.typeOptionBoxTitle}>Transferencia entre Cuentas</Text>
                         <Text style={styles.typeOptionBoxDesc}>Mover dinero propio de una cuenta a otra</Text>
                       </View>
-                      {movementType === 'TRANSFER' && <Ionicons name="checkmark-circle" size={20} color="#3b82f6" />}
+                      {movementType === 'TRANSFER' && (
+                        <Ionicons name="checkmark-circle" size={20} color="#3b82f6" />
+                      )}
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                      style={[styles.typeOptionBox, movementType === 'CARD_PAYMENT' && styles.typeOptionBoxCardPaymentActive]}
+                      style={[
+                        styles.typeOptionBox,
+                        movementType === 'CARD_PAYMENT' && styles.typeOptionBoxCardPaymentActive,
+                      ]}
                       onPress={() => setMovementType('CARD_PAYMENT')}
                     >
                       <Ionicons name="card-outline" size={24} color="#a855f7" />
@@ -539,7 +683,9 @@ export const AddExpenseScreen = () => {
                         <Text style={styles.typeOptionBoxTitle}>Pagar Tarjeta de Crédito</Text>
                         <Text style={styles.typeOptionBoxDesc}>Abonar a tu tarjeta en efectivo o con tu banco</Text>
                       </View>
-                      {movementType === 'CARD_PAYMENT' && <Ionicons name="checkmark-circle" size={20} color="#a855f7" />}
+                      {movementType === 'CARD_PAYMENT' && (
+                        <Ionicons name="checkmark-circle" size={20} color="#a855f7" />
+                      )}
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -549,7 +695,7 @@ export const AddExpenseScreen = () => {
               {step === 2 && (
                 <View style={styles.stepView}>
                   <View style={styles.stepIconBadge}>
-                    <Ionicons name="cash-outline" size={28} color="#10b981" />
+                    <Ionicons name="cash-outline" size={26} color="#10b981" />
                   </View>
                   <Text style={styles.stepTitle}>¿Cuál es el monto?</Text>
                   <Text style={styles.stepSubtitle}>
@@ -558,7 +704,7 @@ export const AddExpenseScreen = () => {
                       : movementType === 'INCOME'
                       ? 'Ingresa el total recibido'
                       : movementType === 'CARD_PAYMENT'
-                      ? 'Ingresa el monto que vas a abonar a la tarjeta'
+                      ? 'Ingresa el monto a abonar a la tarjeta'
                       : 'Ingresa el monto a transferir'}
                   </Text>
 
@@ -590,21 +736,21 @@ export const AddExpenseScreen = () => {
                 </View>
               )}
 
-              {/* PASO 3: Cuentas y Método de Pago */}
+              {/* PASO 3: Cuentas Involucradas con Diseño 100% Consistente y Fijo */}
               {step === 3 && (
                 <View style={styles.stepView}>
                   {movementType === 'CARD_PAYMENT' ? (
                     <>
                       <View style={styles.stepIconBadge}>
-                        <Ionicons name="card-outline" size={28} color="#a855f7" />
+                        <Ionicons name="card-outline" size={26} color="#a855f7" />
                       </View>
                       <Text style={styles.stepTitle}>Detalle del Pago de Tarjeta</Text>
                       <Text style={styles.stepSubtitle}>
-                        Elige si pagas con tarjeta bancaria o en efectivo, y qué tarjeta recibe el pago.
+                        Elige cómo pagas y qué tarjeta de crédito recibe el abono.
                       </Text>
 
-                      {/* Selector de Método de Pago (Con Tarjeta vs En Efectivo) */}
-                      <Text style={styles.inputSectionLabel}>1. ¿Cómo realizas el pago?</Text>
+                      {/* Selector de Método de Pago */}
+                      <Text style={styles.inputSectionLabel}>1. Método con el que pagas:</Text>
                       <View style={styles.paymentMethodSelector}>
                         <TouchableOpacity
                           style={[
@@ -619,7 +765,7 @@ export const AddExpenseScreen = () => {
                           }}
                         >
                           <Ionicons
-                            name="card-outline"
+                            name="business-outline"
                             size={16}
                             color={paymentMethodChoice === 'CARD' ? '#a855f7' : '#94a3b8'}
                           />
@@ -629,7 +775,7 @@ export const AddExpenseScreen = () => {
                               paymentMethodChoice === 'CARD' && styles.methodButtonTextActive,
                             ]}
                           >
-                            Con Tarjeta / Banco
+                            Banco / Débito
                           </Text>
                         </TouchableOpacity>
 
@@ -661,75 +807,43 @@ export const AddExpenseScreen = () => {
                         </TouchableOpacity>
                       </View>
 
-                      {/* Cuenta origen con la que se paga */}
-                      <Text style={styles.inputSectionLabel}>
-                        2. Cuenta con la que pagas ({paymentMethodChoice === 'CARD' ? 'Banco / Débito' : 'Efectivo'}):
-                      </Text>
-                      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalSelector}>
-                        {paymentSourceAccounts.map((acc) => (
-                          <TouchableOpacity
-                            key={acc.id}
-                            style={[
-                              styles.accountChip,
-                              effectiveSourceAccountId === acc.id && styles.accountChipActive,
-                            ]}
-                            onPress={() => setSourceAccountId(acc.id)}
-                          >
-                            <Text
-                              style={[
-                                styles.accountChipText,
-                                effectiveSourceAccountId === acc.id && styles.accountChipTextActive,
-                              ]}
-                            >
-                              {acc.name}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </ScrollView>
+                      {/* Cuenta origen */}
+                      <Text style={styles.inputSectionLabel}>2. Cuenta origen (sale el dinero):</Text>
+                      <View style={styles.accountsVerticalList}>
+                        {paymentSourceAccounts.map((acc) =>
+                          renderConsistentAccountItem(
+                            acc,
+                            effectiveSourceAccountId === acc.id,
+                            () => setSourceAccountId(acc.id),
+                          ),
+                        )}
+                      </View>
 
-                      {/* Tarjeta de crédito a la que se abona */}
-                      <Text style={styles.inputSectionLabel}>3. Tarjeta de Crédito a la que abonas:</Text>
+                      {/* Tarjeta de crédito destino */}
+                      <Text style={styles.inputSectionLabel}>3. Tarjeta de crédito (recibe abono):</Text>
                       {creditCards.length === 0 ? (
                         <View style={styles.miniWarningBox}>
+                          <Ionicons name="information-circle-outline" size={16} color="#fbbf24" style={{ marginRight: 6 }} />
                           <Text style={styles.miniWarningText}>
-                            No tienes tarjetas de crédito registradas. Agrégala primero en la pestaña &quot;Cuentas&quot;.
+                            No tienes tarjetas de crédito registradas en la pestaña Cuentas.
                           </Text>
                         </View>
                       ) : (
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalSelector}>
-                          {creditCards.map((card) => (
-                            <TouchableOpacity
-                              key={card.id}
-                              style={[
-                                styles.accountChip,
-                                styles.creditCardChip,
-                                effectiveDestinationAccountId === card.id && styles.creditCardChipActive,
-                              ]}
-                              onPress={() => setDestinationAccountId(card.id)}
-                            >
-                              <Ionicons
-                                name="card-outline"
-                                size={14}
-                                color={effectiveDestinationAccountId === card.id ? '#38bdf8' : '#64748b'}
-                                style={{ marginRight: 6 }}
-                              />
-                              <Text
-                                style={[
-                                  styles.accountChipText,
-                                  effectiveDestinationAccountId === card.id && styles.creditCardChipTextActive,
-                                ]}
-                              >
-                                {card.name}
-                              </Text>
-                            </TouchableOpacity>
-                          ))}
-                        </ScrollView>
+                        <View style={styles.accountsVerticalList}>
+                          {creditCards.map((card) =>
+                            renderConsistentAccountItem(
+                              card,
+                              effectiveDestinationAccountId === card.id,
+                              () => setDestinationAccountId(card.id),
+                            ),
+                          )}
+                        </View>
                       )}
                     </>
                   ) : (
                     <>
                       <View style={styles.stepIconBadge}>
-                        <Ionicons name="wallet-outline" size={28} color="#6366f1" />
+                        <Ionicons name="wallet-outline" size={26} color="#6366f1" />
                       </View>
                       <Text style={styles.stepTitle}>
                         {movementType === 'EXPENSE'
@@ -744,40 +858,17 @@ export const AddExpenseScreen = () => {
 
                       {/* Cuenta origen */}
                       <Text style={styles.inputSectionLabel}>
-                        {movementType === 'INCOME' ? 'Cuenta destino (recibe):' : 'Cuenta de origen (paga):'}
+                        {movementType === 'INCOME' ? 'Cuenta receptora (recibe):' : 'Cuenta de origen (paga):'}
                       </Text>
-                      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalSelector}>
-                        {accounts.map((acc) => {
-                          const isCard = acc.type === 'CREDIT_CARD';
-                          return (
-                            <TouchableOpacity
-                              key={acc.id}
-                              style={[
-                                styles.accountChip,
-                                effectiveSourceAccountId === acc.id && styles.accountChipActive,
-                              ]}
-                              onPress={() => setSourceAccountId(acc.id)}
-                            >
-                              {isCard && (
-                                <Ionicons
-                                  name="card-outline"
-                                  size={14}
-                                  color={effectiveSourceAccountId === acc.id ? '#38bdf8' : '#64748b'}
-                                  style={{ marginRight: 6 }}
-                                />
-                              )}
-                              <Text
-                                style={[
-                                  styles.accountChipText,
-                                  effectiveSourceAccountId === acc.id && styles.accountChipTextActive,
-                                ]}
-                              >
-                                {acc.name}
-                              </Text>
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </ScrollView>
+                      <View style={styles.accountsVerticalList}>
+                        {accounts.map((acc) =>
+                          renderConsistentAccountItem(
+                            acc,
+                            effectiveSourceAccountId === acc.id,
+                            () => setSourceAccountId(acc.id),
+                          ),
+                        )}
+                      </View>
 
                       {movementType === 'EXPENSE' && selectedSourceAccount?.type === 'CREDIT_CARD' && (
                         <View style={styles.creditNoteBox}>
@@ -788,7 +879,7 @@ export const AddExpenseScreen = () => {
                             style={{ marginRight: 6 }}
                           />
                           <Text style={styles.creditNoteText}>
-                            Esta compra se registrará como deuda en tu tarjeta. No descontará saldo de tu banco.
+                            Esta compra se registrará como saldo deudor en tu tarjeta. No descontará de tu banco.
                           </Text>
                         </View>
                       )}
@@ -797,37 +888,17 @@ export const AddExpenseScreen = () => {
                       {movementType === 'TRANSFER' && (
                         <>
                           <Text style={styles.inputSectionLabel}>Cuenta de destino (recibe fondos):</Text>
-                          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalSelector}>
+                          <View style={styles.accountsVerticalList}>
                             {accounts
                               .filter((a) => a.id !== effectiveSourceAccountId)
-                              .map((acc) => (
-                                <TouchableOpacity
-                                  key={acc.id}
-                                  style={[
-                                    styles.accountChip,
-                                    effectiveDestinationAccountId === acc.id && styles.accountChipActive,
-                                  ]}
-                                  onPress={() => setDestinationAccountId(acc.id)}
-                                >
-                                  {acc.type === 'CREDIT_CARD' && (
-                                    <Ionicons
-                                      name="card-outline"
-                                      size={14}
-                                      color={effectiveDestinationAccountId === acc.id ? '#38bdf8' : '#64748b'}
-                                      style={{ marginRight: 6 }}
-                                    />
-                                  )}
-                                  <Text
-                                    style={[
-                                      styles.accountChipText,
-                                      effectiveDestinationAccountId === acc.id && styles.accountChipTextActive,
-                                    ]}
-                                  >
-                                    {acc.name}
-                                  </Text>
-                                </TouchableOpacity>
-                              ))}
-                          </ScrollView>
+                              .map((acc) =>
+                                renderConsistentAccountItem(
+                                  acc,
+                                  effectiveDestinationAccountId === acc.id,
+                                  () => setDestinationAccountId(acc.id),
+                                ),
+                              )}
+                          </View>
                         </>
                       )}
                     </>
@@ -835,13 +906,13 @@ export const AddExpenseScreen = () => {
                 </View>
               )}
 
-              {/* PASO 4: Detalles Opcionales */}
+              {/* PASO 4: Comercio y Notas (Opcional) */}
               {step === 4 && (
                 <View style={styles.stepView}>
                   <View style={styles.stepIconBadge}>
-                    <Ionicons name="pricetag-outline" size={28} color="#6366f1" />
+                    <Ionicons name="document-text-outline" size={26} color="#6366f1" />
                   </View>
-                  <Text style={styles.stepTitle}>Detalles y Notas (Opcional)</Text>
+                  <Text style={styles.stepTitle}>Comercio y Notas (Opcional)</Text>
                   <Text style={styles.stepSubtitle}>
                     Agrega información adicional para identificar este movimiento después.
                   </Text>
@@ -849,11 +920,15 @@ export const AddExpenseScreen = () => {
                   {movementType !== 'TRANSFER' && movementType !== 'CARD_PAYMENT' && (
                     <>
                       <Text style={styles.inputSectionLabel}>
-                        {movementType === 'EXPENSE' ? 'Comercio o Lugar' : 'Pagador o Cliente'}
+                        {movementType === 'EXPENSE' ? 'Comercio o Lugar:' : 'Fuente o Pagador:'}
                       </Text>
                       <TextInput
                         style={styles.fieldInput}
-                        placeholder={movementType === 'EXPENSE' ? 'Ej. Walmart, Amazon, Oxxo' : 'Ej. Nómina, Reembolso'}
+                        placeholder={
+                          movementType === 'EXPENSE'
+                            ? 'Ej. Walmart, Amazon, Oxxo, Starbucks'
+                            : 'Ej. Empresa, Reembolso, Cliente'
+                        }
                         placeholderTextColor="#64748b"
                         value={merchant}
                         onChangeText={setMerchant}
@@ -862,15 +937,15 @@ export const AddExpenseScreen = () => {
                     </>
                   )}
 
-                  <Text style={styles.inputSectionLabel}>Nota o Descripción libre</Text>
+                  <Text style={styles.inputSectionLabel}>Nota o Descripción adicional:</Text>
                   <TextInput
                     style={[styles.fieldInput, styles.multilineInput]}
                     placeholder={
                       movementType === 'CARD_PAYMENT'
                         ? 'Ej. Pago para no generar intereses del mes'
                         : movementType === 'EXPENSE'
-                        ? 'Ej. Despensa semanal'
-                        : 'Nota sobre la operación'
+                        ? 'Ej. Despensa para la semana'
+                        : 'Nota o detalle de la operación'
                     }
                     placeholderTextColor="#64748b"
                     value={description}
@@ -884,11 +959,13 @@ export const AddExpenseScreen = () => {
               {step === 5 && (
                 <View style={styles.stepView}>
                   <View style={styles.stepIconBadge}>
-                    <Ionicons name="checkmark-circle-outline" size={28} color="#10b981" />
+                    <Ionicons name="receipt-outline" size={26} color="#10b981" />
                   </View>
-                  <Text style={styles.stepTitle}>Confirma tu Movimiento</Text>
+                  <Text style={styles.stepTitle}>
+                    {editingTransaction ? 'Confirma los cambios' : 'Confirma tu Movimiento'}
+                  </Text>
                   <Text style={styles.stepSubtitle}>
-                    Revisa que todo esté correcto antes de guardar en tu historial.
+                    Revisa los datos antes de guardarlos en tu historial.
                   </Text>
 
                   {/* Tarjeta de Recibo Estilizada */}
@@ -903,7 +980,7 @@ export const AddExpenseScreen = () => {
                           : movementType === 'INCOME'
                           ? 'Ingreso'
                           : movementType === 'CARD_PAYMENT'
-                          ? 'Pago de Tarjeta de Crédito'
+                          ? 'Pago de Tarjeta'
                           : 'Transferencia'}
                       </Text>
                     </View>
@@ -920,9 +997,9 @@ export const AddExpenseScreen = () => {
                     {movementType === 'CARD_PAYMENT' ? (
                       <>
                         <View style={styles.receiptRow}>
-                          <Text style={styles.receiptLabel}>Método de pago:</Text>
+                          <Text style={styles.receiptLabel}>Método:</Text>
                           <Text style={styles.receiptValue}>
-                            {paymentMethodChoice === 'CASH' ? 'Efectivo' : 'Tarjeta / Banco'}
+                            {paymentMethodChoice === 'CASH' ? 'Efectivo' : 'Banco / Débito'}
                           </Text>
                         </View>
                         <View style={styles.receiptRow}>
@@ -959,7 +1036,7 @@ export const AddExpenseScreen = () => {
                         <View style={styles.receiptDivider} />
                         {merchant.trim() && (
                           <View style={styles.receiptRow}>
-                            <Text style={styles.receiptLabel}>Comercio / Fuente:</Text>
+                            <Text style={styles.receiptLabel}>Comercio:</Text>
                             <Text style={styles.receiptValue}>{merchant}</Text>
                           </View>
                         )}
@@ -980,7 +1057,12 @@ export const AddExpenseScreen = () => {
                       onPress={() => handleDeleteTransaction(editingTransaction)}
                       disabled={isSubmitting}
                     >
-                      <Ionicons name="trash-outline" size={16} color="#ef4444" style={{ marginRight: 6 }} />
+                      <Ionicons
+                        name="trash-outline"
+                        size={16}
+                        color="#ef4444"
+                        style={{ marginRight: 6 }}
+                      />
                       <Text style={styles.deleteTxButtonText}>Eliminar este movimiento</Text>
                     </TouchableOpacity>
                   )}
@@ -993,18 +1075,20 @@ export const AddExpenseScreen = () => {
               {step > 1 ? (
                 <TouchableOpacity
                   style={styles.backButton}
-                  onPress={() => setStep((prev) => (prev - 1) as any)}
+                  onPress={handlePrevStep}
                   disabled={isSubmitting}
                 >
-                  <Text style={styles.backButtonText}>← Atrás</Text>
+                  <Ionicons name="arrow-back" size={16} color="#94a3b8" style={{ marginRight: 6 }} />
+                  <Text style={styles.backButtonText}>Atrás</Text>
                 </TouchableOpacity>
               ) : (
                 <View style={{ width: 80 }} />
               )}
 
-              {step < 5 ? (
+              {step < TOTAL_STEPS ? (
                 <TouchableOpacity style={styles.primaryButton} onPress={handleNextStep}>
-                  <Text style={styles.primaryButtonText}>Siguiente →</Text>
+                  <Text style={styles.primaryButtonText}>Siguiente</Text>
+                  <Ionicons name="arrow-forward" size={16} color="#fff" style={{ marginLeft: 6 }} />
                 </TouchableOpacity>
               ) : (
                 <TouchableOpacity
@@ -1015,9 +1099,17 @@ export const AddExpenseScreen = () => {
                   {isSubmitting ? (
                     <ActivityIndicator color="#fff" />
                   ) : (
-                    <Text style={styles.primaryButtonText}>
-                      {editingTransaction ? 'Guardar Cambios' : 'Confirmar y Guardar'}
-                    </Text>
+                    <>
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={18}
+                        color="#fff"
+                        style={{ marginRight: 6 }}
+                      />
+                      <Text style={styles.primaryButtonText}>
+                        {editingTransaction ? 'Guardar Cambios' : 'Confirmar y Guardar'}
+                      </Text>
+                    </>
                   )}
                 </TouchableOpacity>
               )}
@@ -1056,10 +1148,15 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#6366f1',
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 10,
+  },
+  btnIcon: {
+    marginRight: 6,
   },
   addButtonText: {
     color: '#fff',
@@ -1072,9 +1169,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 32,
   },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: 16,
+  emptyIconBadge: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#1e293b',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#334155',
   },
   emptyText: {
     color: '#f8fafc',
@@ -1091,6 +1195,8 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   emptyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#6366f1',
     paddingHorizontal: 20,
     paddingVertical: 12,
@@ -1102,21 +1208,21 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 16,
-    gap: 12,
+    gap: 10,
   },
   txCard: {
-    backgroundColor: '#1e293b',
-    borderRadius: 14,
-    padding: 16,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#1e293b',
+    borderRadius: 12,
+    padding: 14,
     borderWidth: 1,
     borderColor: '#334155',
   },
   txLeft: {
     flex: 1,
-    marginRight: 12,
+    marginRight: 10,
   },
   txTypeRow: {
     flexDirection: 'row',
@@ -1127,33 +1233,33 @@ const styles = StyleSheet.create({
   badge: {
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 4,
-    backgroundColor: '#334155',
-  },
-  badgeExpense: {
-    backgroundColor: '#ef444422',
-  },
-  badgeCreditExpense: {
-    backgroundColor: '#f59e0b22',
-  },
-  badgeIncome: {
-    backgroundColor: '#10b98122',
-  },
-  badgeTransfer: {
-    backgroundColor: '#6366f122',
-  },
-  badgeCardPayment: {
-    backgroundColor: '#06b6d422',
+    borderRadius: 6,
   },
   badgeText: {
-    color: '#cbd5e1',
     fontSize: 10,
     fontWeight: 'bold',
+    color: '#fff',
+  },
+  badgeExpense: {
+    backgroundColor: '#ef4444',
+  },
+  badgeCreditExpense: {
+    backgroundColor: '#0891b2',
+  },
+  badgeIncome: {
+    backgroundColor: '#10b981',
+  },
+  badgeTransfer: {
+    backgroundColor: '#3b82f6',
+  },
+  badgeCardPayment: {
+    backgroundColor: '#a855f7',
   },
   txMerchant: {
     color: '#f8fafc',
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '700',
+    flex: 1,
   },
   txSub: {
     color: '#94a3b8',
@@ -1162,37 +1268,40 @@ const styles = StyleSheet.create({
   txRight: {
     alignItems: 'flex-end',
   },
+  txAmountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   txAmount: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 2,
+    fontSize: 15,
+    fontWeight: '800',
   },
   amountExpense: {
     color: '#ef4444',
   },
   amountCreditExpense: {
-    color: '#f59e0b',
+    color: '#38bdf8',
   },
   amountIncome: {
     color: '#10b981',
   },
   amountTransfer: {
-    color: '#818cf8',
+    color: '#38bdf8',
   },
   amountCardPayment: {
-    color: '#06b6d4',
-  },
-  editHintText: {
-    color: '#64748b',
-    fontSize: 11,
+    color: '#c084fc',
   },
   editHintRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    marginTop: 2,
+    marginTop: 4,
   },
-  // Modal Wizard Styles
+  editHintText: {
+    color: '#64748b',
+    fontSize: 11,
+  },
+  // Wizard Styles
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.85)',
@@ -1207,8 +1316,8 @@ const styles = StyleSheet.create({
     maxHeight: '94%',
   },
   wizardHeader: {
-    paddingHorizontal: 24,
-    paddingBottom: 16,
+    paddingHorizontal: 20,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#334155',
   },
@@ -1216,7 +1325,7 @@ const styles = StyleSheet.create({
     height: 4,
     backgroundColor: '#334155',
     borderRadius: 2,
-    marginBottom: 12,
+    marginBottom: 10,
     overflow: 'hidden',
   },
   progressBar: {
@@ -1229,54 +1338,94 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  stepBadge: {
+    backgroundColor: '#0f172a',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  stepText: {
+    color: '#818cf8',
+    fontSize: 12,
+    fontWeight: '700',
+  },
   closeWizardBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-  },
-  stepText: {
-    color: '#94a3b8',
-    fontSize: 13,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
   },
   closeWizardText: {
     color: '#94a3b8',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
+    marginLeft: 4,
+  },
+  jumpStepsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 10,
+  },
+  jumpStepDot: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#0f172a',
+    borderWidth: 1,
+    borderColor: '#334155',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  jumpStepDotActive: {
+    borderColor: '#6366f1',
+    backgroundColor: '#6366f1',
+  },
+  jumpStepDotPassed: {
+    borderColor: '#38bdf8',
+  },
+  jumpStepText: {
+    color: '#94a3b8',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  jumpStepTextActive: {
+    color: '#fff',
   },
   wizardScrollContent: {
-    paddingHorizontal: 24,
-    paddingTop: 20,
+    paddingHorizontal: 20,
+    paddingTop: 16,
     paddingBottom: 16,
   },
   stepView: {
-    minHeight: 320,
+    minHeight: 280,
   },
   stepIconBadge: {
-    width: 48,
-    height: 48,
+    width: 44,
+    height: 44,
     borderRadius: 12,
     backgroundColor: '#0f172a',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: '#334155',
   },
   stepTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#f8fafc',
-    marginBottom: 8,
-    lineHeight: 28,
+    marginBottom: 6,
+    lineHeight: 26,
   },
   stepSubtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#94a3b8',
-    lineHeight: 20,
-    marginBottom: 20,
+    lineHeight: 18,
+    marginBottom: 16,
   },
   typeOptionsList: {
     gap: 10,
@@ -1299,19 +1448,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#10b98115',
   },
   typeOptionBoxTransferActive: {
-    borderColor: '#6366f1',
-    backgroundColor: '#6366f115',
+    borderColor: '#3b82f6',
+    backgroundColor: '#3b82f615',
   },
   typeOptionBoxCardPaymentActive: {
-    borderColor: '#06b6d4',
-    backgroundColor: '#06b6d415',
-  },
-  typeOptionBoxIcon: {
-    fontSize: 24,
-    marginRight: 14,
+    borderColor: '#a855f7',
+    backgroundColor: '#a855f715',
   },
   typeOptionBoxInfo: {
     flex: 1,
+    marginLeft: 12,
   },
   typeOptionBoxTitle: {
     color: '#f8fafc',
@@ -1321,13 +1467,7 @@ const styles = StyleSheet.create({
   },
   typeOptionBoxDesc: {
     color: '#94a3b8',
-    fontSize: 12,
-  },
-  checkMark: {
-    color: '#f8fafc',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginLeft: 8,
+    fontSize: 11,
   },
   amountInputHeroContainer: {
     flexDirection: 'row',
@@ -1335,40 +1475,41 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#0f172a',
     borderRadius: 16,
-    paddingVertical: 24,
     paddingHorizontal: 16,
-    marginBottom: 20,
+    paddingVertical: 14,
     borderWidth: 1,
     borderColor: '#334155',
+    marginBottom: 16,
   },
   currencySymbol: {
-    fontSize: 32,
-    color: '#94a3b8',
-    fontWeight: 'bold',
-    marginRight: 8,
+    color: '#10b981',
+    fontSize: 28,
+    fontWeight: '800',
+    marginRight: 6,
   },
   heroAmountInput: {
-    fontSize: 40,
-    color: '#f8fafc',
+    fontSize: 32,
     fontWeight: 'bold',
-    minWidth: 120,
+    color: '#f8fafc',
     textAlign: 'center',
+    minWidth: 140,
+    padding: 0,
   },
   currencyCode: {
-    fontSize: 16,
     color: '#64748b',
-    fontWeight: 'bold',
-    marginLeft: 8,
+    fontSize: 14,
+    fontWeight: '700',
+    marginLeft: 6,
   },
   quickAmountRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
     flexWrap: 'wrap',
     gap: 8,
+    justifyContent: 'center',
   },
   quickAmountChip: {
     backgroundColor: '#0f172a',
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
@@ -1376,101 +1517,122 @@ const styles = StyleSheet.create({
   },
   quickAmountText: {
     color: '#94a3b8',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
   },
   inputSectionLabel: {
     color: '#cbd5e1',
     fontSize: 13,
-    fontWeight: 'bold',
+    fontWeight: '600',
     marginBottom: 8,
-    marginTop: 6,
+    marginTop: 8,
   },
   paymentMethodSelector: {
     flexDirection: 'row',
     gap: 10,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   methodButton: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingVertical: 12,
     backgroundColor: '#0f172a',
     borderRadius: 10,
-    alignItems: 'center',
     borderWidth: 1.5,
     borderColor: '#334155',
+    gap: 6,
   },
   methodButtonActive: {
-    borderColor: '#06b6d4',
-    backgroundColor: '#06b6d422',
+    borderColor: '#a855f7',
+    backgroundColor: '#a855f715',
   },
   methodButtonText: {
     color: '#94a3b8',
     fontSize: 13,
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
   methodButtonTextActive: {
     color: '#f8fafc',
   },
-  horizontalSelector: {
-    flexDirection: 'row',
-    marginBottom: 16,
+  // Lista vertical y diseño consistente de cuentas (no crecen ni se encogen)
+  accountsVerticalList: {
+    gap: 8,
+    marginBottom: 12,
   },
-  accountChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 14,
+  consistentAccountCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#0f172a',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 12,
     borderWidth: 1.5,
     borderColor: '#334155',
-    marginRight: 8,
+    width: '100%',
   },
-  accountChipActive: {
+  consistentAccountCardSelected: {
     borderColor: '#6366f1',
-    backgroundColor: '#6366f122',
+    backgroundColor: '#1e1b4b33',
   },
-  accountChipText: {
+  consistentAccountIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  consistentAccountInfo: {
+    flex: 1,
+  },
+  consistentAccountName: {
+    color: '#cbd5e1',
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  consistentAccountNameSelected: {
+    color: '#f8fafc',
+  },
+  consistentAccountSub: {
     color: '#94a3b8',
-    fontSize: 14,
+    fontSize: 12,
+    fontWeight: '400',
   },
-  accountChipTextActive: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  creditCardChip: {
-    borderColor: '#0891b266',
-  },
-  creditCardChipActive: {
-    borderColor: '#0891b2',
-    backgroundColor: '#0891b222',
-  },
-  creditCardChipTextActive: {
-    color: '#38bdf8',
-    fontWeight: 'bold',
+  consistentRadioBox: {
+    marginLeft: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   miniWarningBox: {
-    backgroundColor: '#451a03',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#451a0333',
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#f59e0b44',
   },
   miniWarningText: {
-    color: '#fde68a',
+    color: '#f59e0b',
     fontSize: 12,
-    lineHeight: 16,
+    flex: 1,
   },
   creditNoteBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1e1b4b',
-    borderRadius: 10,
+    backgroundColor: '#0891b215',
     padding: 10,
-    marginBottom: 16,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#4338ca',
+    borderColor: '#0891b244',
+    marginTop: 6,
+    marginBottom: 12,
   },
   creditNoteText: {
-    color: '#c7d2fe',
+    color: '#38bdf8',
     fontSize: 12,
     flex: 1,
   },
@@ -1479,10 +1641,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 14,
     color: '#f8fafc',
-    fontSize: 16,
+    fontSize: 15,
     borderWidth: 1,
     borderColor: '#334155',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   multilineInput: {
     minHeight: 80,
@@ -1490,12 +1652,12 @@ const styles = StyleSheet.create({
   },
   receiptCard: {
     backgroundColor: '#0f172a',
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 14,
+    padding: 16,
     borderWidth: 1,
     borderColor: '#334155',
-    marginBottom: 20,
     gap: 12,
+    marginBottom: 16,
   },
   receiptRow: {
     flexDirection: 'row',
@@ -1504,17 +1666,17 @@ const styles = StyleSheet.create({
   },
   receiptLabel: {
     color: '#94a3b8',
-    fontSize: 14,
+    fontSize: 13,
   },
   receiptValue: {
     color: '#f8fafc',
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   receiptValueBig: {
     color: '#10b981',
-    fontSize: 22,
-    fontWeight: 'bold',
+    fontSize: 18,
+    fontWeight: '800',
   },
   receiptDivider: {
     height: 1,
@@ -1523,51 +1685,55 @@ const styles = StyleSheet.create({
   },
   deleteTxButton: {
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
     paddingVertical: 12,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#ef444466',
+    borderColor: '#ef444455',
     backgroundColor: '#ef444415',
   },
   deleteTxButtonText: {
     color: '#ef4444',
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
   wizardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 16,
+    paddingHorizontal: 20,
+    paddingTop: 14,
     borderTopWidth: 1,
     borderTopColor: '#334155',
   },
   backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
   },
   backButtonText: {
     color: '#94a3b8',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: 'bold',
   },
   primaryButton: {
-    backgroundColor: '#6366f1',
-    paddingVertical: 14,
-    paddingHorizontal: 28,
-    borderRadius: 10,
+    flexDirection: 'row',
     alignItems: 'center',
-    minWidth: 140,
+    justifyContent: 'center',
+    backgroundColor: '#6366f1',
+    paddingVertical: 13,
+    paddingHorizontal: 22,
+    borderRadius: 10,
+    minWidth: 130,
   },
   confirmButton: {
     backgroundColor: '#10b981',
   },
   primaryButtonText: {
     color: '#fff',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: 'bold',
   },
 });

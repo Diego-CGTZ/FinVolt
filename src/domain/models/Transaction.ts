@@ -137,6 +137,7 @@ export interface CreateTransactionInput {
 
 /** Campos actualizables por el usuario en una transacción existente. */
 export interface UpdateTransactionInput {
+  accountId?: string;
   type?: TransactionType;
   amountMinor?: number;
   currency?: string;
