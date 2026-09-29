@@ -23,6 +23,7 @@ $REPO        = "Diego-CGTZ/FinVolt"
 $PROJECT_NUM = 1
 $OWNER       = "Diego-CGTZ"
 $STATUS_FIELD_ID = "PVTSSF_lAHOB42opc4BhtJ7zhgn6_o"
+$STATUS_DONE_ID  = "98236657"
 
 # ── 1. Buscar el PR abierto para esta historia ────────────────────────────────
 Write-Host ""
@@ -30,12 +31,12 @@ Write-Host "🔍 Buscando PR para $StoryId..." -ForegroundColor Cyan
 
 $prJson = gh pr list `
     --repo $REPO `
-    --search "[$StoryId]" `
+    --search ("[" + $StoryId + "]") `
     --json number,url,headRefName `
     --limit 1 | ConvertFrom-Json
 
 if (-not $prJson -or $prJson.Count -eq 0) {
-    Write-Error "No se encontró PR abierto para $StoryId. ¿Ya fue mergeado o no fue creado?"
+    Write-Error ("No se encontro PR abierto para " + $StoryId)
 }
 
 $pr           = $prJson[0]
@@ -43,7 +44,7 @@ $prNumber     = $pr.number
 $prUrl        = $pr.url
 $branchName   = $pr.headRefName
 
-Write-Host "  PR #$prNumber en rama '$branchName'" -ForegroundColor Green
+Write-Host ("  PR #{0} en rama '{1}'" -f $prNumber, $branchName) -ForegroundColor Green
 
 # ── 2. Squash-merge ───────────────────────────────────────────────────────────
 Write-Host ""
@@ -84,24 +85,15 @@ if ($issueJson -and $issueJson.Count -gt 0) {
     $itemId = gh project item-list $PROJECT_NUM `
         --owner $OWNER `
         --format json `
-        --jq ".items[] | select(.content.number == $issueNumber) | .id" 2>$null
+        --jq (".items[] | select(.content.number == " + $issueNumber + ") | .id") 2>$null
 
     if ($itemId) {
-        $doneId = gh project field-list $PROJECT_NUM `
-            --owner $OWNER `
-            --format json `
-            --jq '.fields[] | select(.name == "Status") | .options[] | select(.name == "Done") | .id' 2>$null
-
-        if ($doneId) {
-            gh project item-edit `
-                --project-id PVT_kwHOB42opc4BhtJ7 `
-                --id $itemId `
-                --field-id $STATUS_FIELD_ID `
-                --single-select-option-id $doneId | Out-Null
-            Write-Host "  ✅ Status → Done" -ForegroundColor Green
-        } else {
-            Write-Host "  ⚠️  No se encontró opción 'Done'. Actualiza manualmente." -ForegroundColor Yellow
-        }
+        gh project item-edit `
+            --project-id PVT_kwHOB42opc4BhtJ7 `
+            --id $itemId `
+            --field-id $STATUS_FIELD_ID `
+            --single-select-option-id $STATUS_DONE_ID | Out-Null
+        Write-Host "  ✅ Status -> Done" -ForegroundColor Green
     }
 }
 

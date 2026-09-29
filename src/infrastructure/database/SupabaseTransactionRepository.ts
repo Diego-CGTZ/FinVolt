@@ -66,7 +66,14 @@ export class SupabaseTransactionRepository implements ITransactionRepository {
   // ── Mutaciones ─────────────────────────────────────────────────────────────
 
   async createTransaction(input: CreateTransactionInput): Promise<Transaction> {
+    // user_id es NOT NULL sin DEFAULT en la tabla; debe enviarse explícitamente
+    // para que la RLS policy (auth.uid() = user_id) no rechace el INSERT.
+    const { data: sessionData } = await supabase.auth.getSession();
+    const userId = sessionData?.session?.user?.id;
+    if (!userId) throw new Error('Usuario no autenticado');
+
     const row: Record<string, unknown> = {
+      user_id:              userId,
       account_id:           input.accountId,
       type:                 input.type,
       amount_minor:         input.amountMinor,
