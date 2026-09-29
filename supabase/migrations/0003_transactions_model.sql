@@ -42,7 +42,7 @@ CREATE TYPE public.transaction_source AS ENUM (
 CREATE TABLE IF NOT EXISTS public.transactions (
   -- Identidad
   id                UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id           UUID          NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id           UUID          NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
 
   -- Cuenta y tipo
   account_id        UUID          NOT NULL REFERENCES public.accounts(id) ON DELETE CASCADE,

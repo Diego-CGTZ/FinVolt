@@ -6,13 +6,41 @@ import { CategoriesProvider } from './src/application/state/CategoriesContext';
 import { TransactionsProvider } from './src/application/state/TransactionsContext';
 import { AuthScreen } from './src/presentation/screens/AuthScreen';
 import { AccountsScreen } from './src/presentation/screens/AccountsScreen';
+import { AddExpenseScreen } from './src/presentation/screens/AddExpenseScreen';
+import { useState } from 'react';
+import { TouchableOpacity, Text } from 'react-native';
+
+function MainTabs() {
+  const [activeTab, setActiveTab] = useState<'ACCOUNTS' | 'TRANSACTIONS'>('ACCOUNTS');
+
+  return (
+    <View style={{ flex: 1, backgroundColor: '#0f172a' }}>
+      <View style={{ flex: 1 }}>
+        {activeTab === 'ACCOUNTS' ? <AccountsScreen /> : <AddExpenseScreen />}
+      </View>
+      <View style={styles.tabBar}>
+        <TouchableOpacity
+          style={[styles.tabButton, activeTab === 'ACCOUNTS' && styles.tabButtonActive]}
+          onPress={() => setActiveTab('ACCOUNTS')}
+        >
+          <Text style={[styles.tabText, activeTab === 'ACCOUNTS' && styles.tabTextActive]}>Cuentas</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tabButton, activeTab === 'TRANSACTIONS' && styles.tabButtonActive]}
+          onPress={() => setActiveTab('TRANSACTIONS')}
+        >
+          <Text style={[styles.tabText, activeTab === 'TRANSACTIONS' && styles.tabTextActive]}>
+            Movimientos
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
 
 /**
- * Root navigator — switches between AuthScreen and AccountsScreen
+ * Root navigator — switches between AuthScreen and MainTabs
  * based on the current auth state from AuthContext.
- *
- * Navigation (US-navigation) will replace this simple switch
- * once a proper navigator is introduced.
  */
 function RootNavigator() {
   const { authState } = useAuth();
@@ -26,12 +54,11 @@ function RootNavigator() {
   }
 
   if (authState.status === 'authenticated') {
-    // We render AccountsScreen for now to satisfy US-006 until Expo Router is set up
     return (
       <AccountsProvider>
         <CategoriesProvider>
           <TransactionsProvider>
-            <AccountsScreen />
+            <MainTabs />
           </TransactionsProvider>
         </CategoriesProvider>
       </AccountsProvider>
@@ -57,4 +84,32 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: '#1e293b',
+    paddingBottom: 20,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#334155',
+  },
+  tabButton: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  tabButtonActive: {
+    borderTopWidth: 2,
+    borderTopColor: '#6366f1',
+    marginTop: -10,
+    paddingTop: 12,
+  },
+  tabText: {
+    color: '#94a3b8',
+    fontSize: 14,
+  },
+  tabTextActive: {
+    color: '#6366f1',
+    fontWeight: 'bold',
+  },
 });
+
