@@ -7,19 +7,41 @@ import { TransactionsProvider } from './src/application/state/TransactionsContex
 import { AuthScreen } from './src/presentation/screens/AuthScreen';
 import { AccountsScreen } from './src/presentation/screens/AccountsScreen';
 import { AddExpenseScreen } from './src/presentation/screens/AddExpenseScreen';
+import { HomeScreen } from './src/presentation/screens/HomeScreen';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { TouchableOpacity, Text } from 'react-native';
 
 function MainTabs() {
-  const [activeTab, setActiveTab] = useState<'ACCOUNTS' | 'TRANSACTIONS'>('ACCOUNTS');
+  const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'ACCOUNTS' | 'TRANSACTIONS'>('DASHBOARD');
 
   return (
     <View style={{ flex: 1, backgroundColor: '#0f172a' }}>
       <View style={{ flex: 1 }}>
-        {activeTab === 'ACCOUNTS' ? <AccountsScreen /> : <AddExpenseScreen />}
+        {activeTab === 'DASHBOARD' ? (
+          <HomeScreen onNavigateTab={(tab) => setActiveTab(tab)} />
+        ) : activeTab === 'ACCOUNTS' ? (
+          <AccountsScreen />
+        ) : (
+          <AddExpenseScreen />
+        )}
       </View>
       <View style={styles.tabBar}>
+        <TouchableOpacity
+          style={[styles.tabButton, activeTab === 'DASHBOARD' && styles.tabButtonActive]}
+          onPress={() => setActiveTab('DASHBOARD')}
+        >
+          <Ionicons
+            name={activeTab === 'DASHBOARD' ? 'pie-chart' : 'pie-chart-outline'}
+            size={22}
+            color={activeTab === 'DASHBOARD' ? '#6366f1' : '#94a3b8'}
+            style={styles.tabIcon}
+          />
+          <Text style={[styles.tabText, activeTab === 'DASHBOARD' && styles.tabTextActive]}>
+            Inicio
+          </Text>
+        </TouchableOpacity>
+
         <TouchableOpacity
           style={[styles.tabButton, activeTab === 'ACCOUNTS' && styles.tabButtonActive]}
           onPress={() => setActiveTab('ACCOUNTS')}
@@ -30,8 +52,11 @@ function MainTabs() {
             color={activeTab === 'ACCOUNTS' ? '#6366f1' : '#94a3b8'}
             style={styles.tabIcon}
           />
-          <Text style={[styles.tabText, activeTab === 'ACCOUNTS' && styles.tabTextActive]}>Cuentas</Text>
+          <Text style={[styles.tabText, activeTab === 'ACCOUNTS' && styles.tabTextActive]}>
+            Cuentas
+          </Text>
         </TouchableOpacity>
+
         <TouchableOpacity
           style={[styles.tabButton, activeTab === 'TRANSACTIONS' && styles.tabButtonActive]}
           onPress={() => setActiveTab('TRANSACTIONS')}

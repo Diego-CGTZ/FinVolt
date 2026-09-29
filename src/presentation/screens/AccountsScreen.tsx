@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -13,6 +13,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAccounts } from '../../application/state/AccountsContext';
+import { useTransactions } from '../../application/state/TransactionsContext';
+import { calculateAggregateBalances } from '../../domain/services/BalanceCalculatorService';
 import type { AccountType } from '../../domain/models/Account';
 
 export const ACCOUNT_TYPE_CONFIG: Record<
@@ -74,7 +76,14 @@ const ACCOUNT_TYPES: AccountType[] = [
 
 export const AccountsScreen = () => {
   const { accounts, isLoading, createAccount, deleteAccount } = useAccounts();
+  const { transactions } = useTransactions();
   const [isModalVisible, setIsModalVisible] = useState(false);
+
+  // Cómputo de balances y agregados en tiempo real (US-015)
+  const aggregates = useMemo(
+    () => calculateAggregateBalances(accounts, transactions),
+    [accounts, transactions],
+  );
 
   // Wizard state:
   // For standard accounts: 1: Nombre, 2: Tipo, 3: Saldo, 4: Resumen
@@ -200,20 +209,16 @@ export const AccountsScreen = () => {
 
   const selectedConfig = ACCOUNT_TYPE_CONFIG[type];
 
-  // Métricas de Liquidez Real (US-013 / US-016)
-  const bankBalance = accounts
-    .filter((a) => a.type === 'CHECKING' || a.type === 'SAVINGS' || a.type === 'DIGITAL_WALLET')
-    .reduce((sum, a) => sum + (a.initialBalance || 0), 0);
+  // Métricas y balances agregados en vivo (US-015)
+  const bankBalance =
+    aggregates.breakdownByType.CHECKING.totalBalance +
+    aggregates.breakdownByType.SAVINGS.totalBalance +
+    aggregates.breakdownByType.DIGITAL_WALLET.totalBalance;
 
-  const cashBalance = accounts
-    .filter((a) => a.type === 'CASH')
-    .reduce((sum, a) => sum + (a.initialBalance || 0), 0);
-
-  const creditDebt = accounts
-    .filter((a) => a.type === 'CREDIT_CARD')
-    .reduce((sum, a) => sum + (a.initialBalance < 0 ? Math.abs(a.initialBalance) : 0), 0);
-
-  const totalRealLiquidity = bankBalance + cashBalance;
+  const cashBalance = aggregates.breakdownByType.CASH.totalBalance;
+  const creditDebt = aggregates.totalCreditDebt;
+  const totalRealLiquidity = aggregates.totalLiquidAssets;
+  const totalNetWorth = aggregates.totalNetWorth;
 
   return (
     <View style={styles.container}>
@@ -235,7 +240,7 @@ export const AccountsScreen = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Banner de Liquidez Real (incluyendo efectivo en mano) */}
+      {/* Banner de Balances y Liquidez Real Agregados (US-015) */}
       {accounts.length > 0 && (
         <View style={styles.liquidityBannerWrapper}>
           <View style={styles.liquidityCard}>
@@ -244,6 +249,9 @@ export const AccountsScreen = () => {
                 <Text style={styles.liquidityLabel}>Liquidez Real Disponible</Text>
                 <Text style={styles.liquidityAmount}>
                   ${totalRealLiquidity.toFixed(2)} MXN
+                </Text>
+                <Text style={styles.netWorthSubtitle}>
+                  Patrimonio Neto: ${totalNetWorth.toFixed(2)} MXN
                 </Text>
               </View>
               <View style={styles.liquidityIconBadge}>
@@ -277,7 +285,7 @@ export const AccountsScreen = () => {
         </View>
       )}
 
-      {/* Lista de cuentas */}
+      {/* Lista de cuentas con Balances Actuales (US-015) */}
       {accounts.length === 0 ? (
         <View style={styles.emptyContainer}>
           <View style={styles.emptyIconBadge}>
@@ -306,7 +314,11 @@ export const AccountsScreen = () => {
           renderItem={({ item }) => {
             const isItemCredit = item.type === 'CREDIT_CARD';
             const config = ACCOUNT_TYPE_CONFIG[item.type] || ACCOUNT_TYPE_CONFIG.OTHER;
-            const isNegative = item.initialBalance < 0;
+            const accountBal = aggregates.balancesByAccount[item.id];
+            const currentBal = accountBal ? accountBal.currentBalance : item.initialBalance;
+            const isNegative = currentBal < 0;
+            const netChange = accountBal ? accountBal.netChange : 0;
+            const txCount = accountBal ? accountBal.transactionCount : 0;
 
             return (
               <View style={[styles.accountCard, isItemCredit && styles.creditCardBorder]}>
@@ -329,17 +341,39 @@ export const AccountsScreen = () => {
                 </View>
 
                 <View style={styles.cardFooter}>
-                  <Text style={styles.balanceLabel}>
-                    {isItemCredit ? (isNegative ? 'Deuda actual:' : 'Saldo:') : 'Saldo disponible:'}
-                  </Text>
+                  <View>
+                    <Text style={styles.balanceLabel}>
+                      {isItemCredit
+                        ? isNegative
+                          ? 'Deuda actual:'
+                          : 'Saldo a favor:'
+                        : 'Saldo actual:'}
+                    </Text>
+                    {txCount > 0 && netChange !== 0 ? (
+                      <View style={styles.deltaRow}>
+                        <Ionicons
+                          name={netChange > 0 ? 'arrow-up' : 'arrow-down'}
+                          size={11}
+                          color={netChange > 0 ? '#10b981' : '#ef4444'}
+                        />
+                        <Text style={[styles.deltaText, { color: netChange > 0 ? '#10b981' : '#ef4444' }]}>
+                          {netChange > 0 ? '+' : ''}${netChange.toFixed(2)}
+                        </Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.initialBalSub}>
+                        Inicial: ${Math.abs(item.initialBalance).toFixed(2)}
+                      </Text>
+                    )}
+                  </View>
                   <Text
                     style={[
                       styles.balanceAmount,
-                      isItemCredit && styles.creditBalanceAmount,
+                      isItemCredit && !isNegative && styles.creditBalanceAmount,
                       isNegative && styles.negativeBalance,
                     ]}
                   >
-                    {isNegative ? '-' : ''}${Math.abs(item.initialBalance).toFixed(2)} {item.currency}
+                    {isNegative ? '-' : ''}${Math.abs(currentBal).toFixed(2)} {item.currency}
                   </Text>
                 </View>
               </View>
@@ -912,6 +946,27 @@ const styles = StyleSheet.create({
   },
   negativeBalance: {
     color: '#ef4444',
+  },
+  netWorthSubtitle: {
+    fontSize: 13,
+    color: '#94a3b8',
+    marginTop: 4,
+    fontWeight: '500',
+  },
+  deltaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    marginTop: 2,
+  },
+  deltaText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  initialBalSub: {
+    fontSize: 11,
+    color: '#64748b',
+    marginTop: 2,
   },
   // Wizard Styles
   modalOverlay: {

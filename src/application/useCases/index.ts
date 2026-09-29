@@ -5,4 +5,4 @@
  * Future: GetLiquidityUseCase (US-016), RecordExpenseUseCase (US-009),
  * RecordIncomeUseCase (US-010), GetBudgetSummaryUseCase (US-047).
  */
-export {};
+export * from './GetBalancesUseCase';

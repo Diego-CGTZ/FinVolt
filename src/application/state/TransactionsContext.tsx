@@ -96,6 +96,24 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   };
 
+  // ── Cargar automáticamente al autenticarse (US-015) ────────────────────────
+  useEffect(() => {
+    let mounted = true;
+    if (authState.status === 'authenticated') {
+      repository
+        .listTransactions()
+        .then((data) => {
+          if (mounted) setTransactions(data);
+        })
+        .catch((err: any) => {
+          if (mounted) setError(err.message || 'Error loading transactions');
+        });
+    }
+    return () => {
+      mounted = false;
+    };
+  }, [authState.status]);
+
   // ── Limpiar al cerrar sesión ───────────────────────────────────────────────
   useEffect(() => {
     if (authState.status === 'authenticated') return;

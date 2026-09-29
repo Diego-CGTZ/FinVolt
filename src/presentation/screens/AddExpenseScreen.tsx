@@ -279,6 +279,7 @@ export const AddExpenseScreen = () => {
           occurredAt: new Date(),
           description: description.trim() || `Transferencia hacia ${selectedDestAccount.name}`,
           source: 'MANUAL',
+          sourceEventId: 'TRANSFER_OUT',
         });
 
         const inbound = await createTransaction({
@@ -290,6 +291,7 @@ export const AddExpenseScreen = () => {
           description: description.trim() || `Transferencia desde ${selectedSourceAccount.name}`,
           linkedTransactionId: outbound.id,
           source: 'MANUAL',
+          sourceEventId: 'TRANSFER_IN',
         });
 
         await updateTransaction(outbound.id, { linkedTransactionId: inbound.id });
@@ -307,6 +309,7 @@ export const AddExpenseScreen = () => {
           occurredAt: new Date(),
           description: description.trim() || `${atmConcept} desde ${selectedSourceAccount.name}`,
           source: 'MANUAL',
+          sourceEventId: 'TRANSFER_OUT',
         });
 
         const inbound = await createTransaction({
@@ -318,6 +321,7 @@ export const AddExpenseScreen = () => {
           description: description.trim() || `${atmConcept} a ${selectedDestAccount.name}`,
           linkedTransactionId: outbound.id,
           source: 'MANUAL',
+          sourceEventId: 'TRANSFER_IN',
         });
 
         await updateTransaction(outbound.id, { linkedTransactionId: inbound.id });
@@ -340,6 +344,7 @@ export const AddExpenseScreen = () => {
             description.trim() ||
             `Pago a tarjeta ${selectedDestAccount.name} (${payMethodLabel})`,
           source: 'MANUAL',
+          sourceEventId: 'TRANSFER_OUT',
         });
 
         const inbound = await createTransaction({
@@ -353,6 +358,7 @@ export const AddExpenseScreen = () => {
             `Abono a deuda desde ${selectedSourceAccount.name}`,
           linkedTransactionId: outbound.id,
           source: 'MANUAL',
+          sourceEventId: 'TRANSFER_IN',
         });
 
         await updateTransaction(outbound.id, { linkedTransactionId: inbound.id });

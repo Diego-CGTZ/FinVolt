@@ -7,4 +7,4 @@
  * Future interfaces: IFinancialSourceAdapter, INotificationParser,
  * IEmailAdapter — added in US-019, US-021, US-033, etc.
  */
-export {};
+export * from './BalanceCalculatorService';
