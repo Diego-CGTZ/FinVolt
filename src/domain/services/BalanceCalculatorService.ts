@@ -378,3 +378,125 @@ export function calculateLiquidityMetrics(
     actualIncomes,
   };
 }
+
+/**
+ * Resumen de gastos e ingresos del mes calendario actual (US-017).
+ */
+export interface MonthlyFinancialSummary {
+  currentMonthName: string;
+  monthlyIncome: number;
+  monthlyExpense: number;
+  monthlyNetSavings: number;
+  monthlySavingsRate: number;
+  monthlyTransactionsCount: number;
+}
+
+export function calculateMonthlyFinancialSummary(
+  transactions: Transaction[],
+  referenceDate = new Date(),
+): MonthlyFinancialSummary {
+  const currentYear = referenceDate.getFullYear();
+  const currentMonth = referenceDate.getMonth();
+
+  let monthlyIncome = 0;
+  let monthlyExpense = 0;
+  let monthlyTransactionsCount = 0;
+
+  for (const tx of transactions) {
+    if (tx.status === 'REJECTED' || tx.status === 'DUPLICATE') continue;
+
+    const txDate = new Date(tx.occurredAt);
+    if (txDate.getFullYear() === currentYear && txDate.getMonth() === currentMonth) {
+      const amount = Number(tx.amountMinor) / 100;
+      if (tx.type === 'INCOME') {
+        monthlyIncome += amount;
+        monthlyTransactionsCount++;
+      } else if (tx.type === 'EXPENSE') {
+        monthlyExpense += amount;
+        monthlyTransactionsCount++;
+      }
+      // Las transferencias entre cuentas propias quedan excluidas de gastos e ingresos
+    }
+  }
+
+  const monthlyNetSavings = monthlyIncome - monthlyExpense;
+  const monthlySavingsRate =
+    monthlyIncome > 0
+      ? Math.max(0, Math.round((monthlyNetSavings / monthlyIncome) * 100))
+      : 0;
+
+  const monthFormatter = new Intl.DateTimeFormat('es-MX', { month: 'long', year: 'numeric' });
+  const rawMonthName = monthFormatter.format(referenceDate);
+  const currentMonthName = rawMonthName.charAt(0).toUpperCase() + rawMonthName.slice(1);
+
+  return {
+    currentMonthName,
+    monthlyIncome,
+    monthlyExpense,
+    monthlyNetSavings,
+    monthlySavingsRate,
+    monthlyTransactionsCount,
+  };
+}
+
+/**
+ * Resumen de obligaciones de crédito por tarjeta (US-017).
+ */
+export interface CreditObligation {
+  accountId: string;
+  accountName: string;
+  currency: string;
+  debtAmount: number;
+  hasDebt: boolean;
+  creditLimit?: number;
+  cutoffDay?: number;
+  paymentDueDay?: number;
+}
+
+export interface CreditObligationsSummary {
+  totalCreditDebt: number;
+  cardsWithDebtCount: number;
+  totalCardsCount: number;
+  obligations: CreditObligation[];
+}
+
+export function calculateCreditObligations(
+  accounts: Account[],
+  transactions: Transaction[],
+): CreditObligationsSummary {
+  const creditAccounts = accounts.filter((a) => a.type === 'CREDIT_CARD');
+  const aggregate = calculateAggregateBalances(accounts, transactions);
+
+  let totalCreditDebt = 0;
+  let cardsWithDebtCount = 0;
+
+  const obligations: CreditObligation[] = creditAccounts.map((card) => {
+    const accBal = aggregate.balancesByAccount[card.id];
+    const currentBal = accBal ? accBal.currentBalance : card.initialBalance;
+    const debtAmount = currentBal < 0 ? Math.abs(currentBal) : 0;
+    const hasDebt = debtAmount > 0;
+
+    if (hasDebt) {
+      totalCreditDebt += debtAmount;
+      cardsWithDebtCount++;
+    }
+
+    return {
+      accountId: card.id,
+      accountName: card.name,
+      currency: card.currency,
+      debtAmount,
+      hasDebt,
+      creditLimit: card.creditLimit,
+      cutoffDay: card.cutoffDay,
+      paymentDueDay: card.paymentDueDay,
+    };
+  });
+
+  return {
+    totalCreditDebt,
+    cardsWithDebtCount,
+    totalCardsCount: creditAccounts.length,
+    obligations,
+  };
+}

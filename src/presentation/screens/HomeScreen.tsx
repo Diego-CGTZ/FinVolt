@@ -16,6 +16,8 @@ import { useTransactions } from '../../application/state/TransactionsContext';
 import {
   calculateAggregateBalances,
   calculateLiquidityMetrics,
+  calculateMonthlyFinancialSummary,
+  calculateCreditObligations,
 } from '../../domain/services/BalanceCalculatorService';
 import { ACCOUNT_TYPE_CONFIG } from './AccountsScreen';
 
@@ -24,13 +26,13 @@ interface HomeScreenProps {
 }
 
 /**
- * HomeScreen (Dashboard US-015 / US-016)
+ * HomeScreen (Dashboard US-015 / US-016 / US-017)
  *
  * Muestra el panel financiero principal con:
- * - Distinción estricta entre Balance Contable, Liquidez Real y Liquidez Proyectada.
- * - Desglose de liquidez líquida (Efectivo, Débito, Ahorro, Billeteras).
- * - Exclusión estricta de tarjetas como liquidez positiva y de transferencias como gastos.
- * - Balances actuales individuales por cuenta (actualizados automáticamente con transacciones).
+ * - Liquidez real disponible y proyectada (US-016).
+ * - Balances actuales por cuenta y agregados (US-015).
+ * - Gastos e ingresos del mes actual (US-017).
+ * - Obligaciones de crédito detalladas por tarjeta (US-017).
  * - Cierre de sesión seguro (US-004).
  */
 export function HomeScreen({ onNavigateTab }: HomeScreenProps) {
@@ -45,6 +47,16 @@ export function HomeScreen({ onNavigateTab }: HomeScreenProps) {
 
   const liquidity = useMemo(
     () => calculateLiquidityMetrics(accounts, transactions),
+    [accounts, transactions],
+  );
+
+  const monthly = useMemo(
+    () => calculateMonthlyFinancialSummary(transactions),
+    [transactions],
+  );
+
+  const creditObligations = useMemo(
+    () => calculateCreditObligations(accounts, transactions),
     [accounts, transactions],
   );
 
@@ -230,30 +242,199 @@ export function HomeScreen({ onNavigateTab }: HomeScreenProps) {
               </View>
             </View>
 
-            {/* Flujo Real del Periodo (US-016: Transferencias no son gastos) */}
-            <View style={styles.cashFlowCard}>
-              <View style={styles.cashFlowHeader}>
-                <Ionicons name="swap-vertical-outline" size={16} color="#6366f1" />
-                <Text style={styles.cashFlowTitle}>Flujo Real del Periodo</Text>
-                <Text style={styles.cashFlowSubtitle}>(Sin transferencias)</Text>
-              </View>
-              <View style={styles.cashFlowRow}>
-                <View style={styles.cashFlowItem}>
-                  <View style={styles.cashFlowItemHeader}>
-                    <Ionicons name="arrow-up-circle" size={14} color="#10b981" />
-                    <Text style={styles.cashFlowItemLabel}>Ingresos</Text>
-                  </View>
-                  <Text style={styles.incomeAmount}>+${liquidity.actualIncomes.toFixed(2)}</Text>
-                </View>
-                <View style={styles.cashFlowDivider} />
-                <View style={styles.cashFlowItem}>
-                  <View style={styles.cashFlowItemHeader}>
-                    <Ionicons name="arrow-down-circle" size={14} color="#ef4444" />
-                    <Text style={styles.cashFlowItemLabel}>Gastos</Text>
-                  </View>
-                  <Text style={styles.expenseAmount}>-${liquidity.actualExpenses.toFixed(2)}</Text>
+            {/* Métricas del Mes Calendario (US-017) */}
+            <View style={styles.sectionContainer}>
+              <View style={styles.sectionHeaderRow}>
+                <Text style={styles.sectionTitle}>Métricas de {monthly.currentMonthName}</Text>
+                <View style={styles.txCountBadge}>
+                  <Text style={styles.txCountBadgeText}>
+                    {monthly.monthlyTransactionsCount} movs
+                  </Text>
                 </View>
               </View>
+
+              <View style={styles.cardsRow}>
+                {/* Gastos del Mes */}
+                <View style={styles.metricCard}>
+                  <View style={styles.metricCardHeader}>
+                    <View style={[styles.metricIconBox, { backgroundColor: '#ef444422' }]}>
+                      <Ionicons name="arrow-down-outline" size={18} color="#ef4444" />
+                    </View>
+                    <Text style={[styles.metricCardTag, styles.tagDebt]}>Gastos</Text>
+                  </View>
+                  <Text style={styles.metricCardLabel}>Gastos del Mes</Text>
+                  <Text style={[styles.metricCardAmount, styles.debtAmountText]}>
+                    -${monthly.monthlyExpense.toFixed(2)}
+                  </Text>
+                  <Text style={styles.metricCardSub}>En {monthly.currentMonthName}</Text>
+                </View>
+
+                {/* Ingresos del Mes */}
+                <View style={styles.metricCard}>
+                  <View style={styles.metricCardHeader}>
+                    <View style={[styles.metricIconBox, { backgroundColor: '#10b98122' }]}>
+                      <Ionicons name="arrow-up-outline" size={18} color="#10b981" />
+                    </View>
+                    <Text style={[styles.metricCardTag, styles.tagClear]}>Ingresos</Text>
+                  </View>
+                  <Text style={styles.metricCardLabel}>Ingresos del Mes</Text>
+                  <Text style={[styles.metricCardAmount, { color: '#10b981' }]}>
+                    +${monthly.monthlyIncome.toFixed(2)}
+                  </Text>
+                  <Text style={styles.metricCardSub}>En {monthly.currentMonthName}</Text>
+                </View>
+              </View>
+
+              {/* Ahorro Neto del Mes */}
+              <View style={styles.monthlySavingsCard}>
+                <View style={styles.monthlySavingsLeft}>
+                  <Ionicons
+                    name={monthly.monthlyNetSavings >= 0 ? 'trending-up' : 'trending-down'}
+                    size={20}
+                    color={monthly.monthlyNetSavings >= 0 ? '#10b981' : '#ef4444'}
+                  />
+                  <View style={{ marginLeft: 10 }}>
+                    <Text style={styles.monthlySavingsLabel}>Ahorro Neto del Mes</Text>
+                    <Text
+                      style={[
+                        styles.monthlySavingsValue,
+                        monthly.monthlyNetSavings < 0 && styles.debtAmountText,
+                      ]}
+                    >
+                      {monthly.monthlyNetSavings >= 0 ? '+' : '-'}$
+                      {Math.abs(monthly.monthlyNetSavings).toFixed(2)} MXN
+                    </Text>
+                  </View>
+                </View>
+                {monthly.monthlyIncome > 0 && (
+                  <View style={styles.savingsRateBadge}>
+                    <Text style={styles.savingsRateText}>{monthly.monthlySavingsRate}% tasa</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            {/* Sección: Obligaciones de Crédito (US-017) */}
+            <View style={styles.sectionContainer}>
+              <View style={styles.sectionHeaderRow}>
+                <Text style={styles.sectionTitle}>Obligaciones de Crédito</Text>
+                <View
+                  style={[
+                    styles.obligationsStatusBadge,
+                    creditObligations.totalCreditDebt > 0
+                      ? styles.obligationsDebtBadge
+                      : styles.obligationsClearBadge,
+                  ]}
+                >
+                  <Ionicons
+                    name={
+                      creditObligations.totalCreditDebt > 0
+                        ? 'alert-circle-outline'
+                        : 'checkmark-circle-outline'
+                    }
+                    size={13}
+                    color={creditObligations.totalCreditDebt > 0 ? '#ef4444' : '#10b981'}
+                    style={{ marginRight: 4 }}
+                  />
+                  <Text
+                    style={[
+                      styles.obligationsStatusText,
+                      {
+                        color:
+                          creditObligations.totalCreditDebt > 0 ? '#ef4444' : '#10b981',
+                      },
+                    ]}
+                  >
+                    {creditObligations.totalCreditDebt > 0
+                      ? `Deuda: -$${creditObligations.totalCreditDebt.toFixed(2)}`
+                      : 'Sin deudas'}
+                  </Text>
+                </View>
+              </View>
+
+              {creditObligations.totalCardsCount === 0 ? (
+                <View style={styles.noCreditCardsCard}>
+                  <Ionicons name="card-outline" size={24} color="#64748b" />
+                  <Text style={styles.noCreditCardsText}>
+                    No tienes tarjetas de crédito registradas
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.obligationsList}>
+                  {creditObligations.obligations.map((item) => (
+                    <View key={item.accountId} style={styles.obligationCard}>
+                      <View style={styles.obligationCardLeft}>
+                        <View
+                          style={[
+                            styles.obligationIconBadge,
+                            item.hasDebt
+                              ? styles.obligationDebtIcon
+                              : styles.obligationClearIcon,
+                          ]}
+                        >
+                          <Ionicons
+                            name="card-outline"
+                            size={18}
+                            color={item.hasDebt ? '#ef4444' : '#10b981'}
+                          />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.obligationCardName}>{item.accountName}</Text>
+                          <Text style={styles.obligationCardStatus}>
+                            {item.hasDebt ? 'Pago pendiente' : 'Al corriente (Sin deuda)'}
+                          </Text>
+                          {(item.cutoffDay || item.paymentDueDay) && (
+                            <View style={styles.obligationDatesRow}>
+                              {item.cutoffDay ? (
+                                <Text style={styles.obligationDateText}>
+                                  Corte día {item.cutoffDay}
+                                </Text>
+                              ) : null}
+                              {item.cutoffDay && item.paymentDueDay ? (
+                                <Text style={styles.obligationDateDot}>•</Text>
+                              ) : null}
+                              {item.paymentDueDay ? (
+                                <Text style={[styles.obligationDateText, { color: '#f59e0b' }]}>
+                                  Pago día {item.paymentDueDay}
+                                </Text>
+                              ) : null}
+                            </View>
+                          )}
+                        </View>
+                      </View>
+
+                      <View style={styles.obligationCardRight}>
+                        <Text
+                          style={[
+                            styles.obligationAmount,
+                            item.hasDebt
+                              ? styles.obligationDebtAmount
+                              : styles.obligationClearAmount,
+                          ]}
+                        >
+                          {item.hasDebt ? `-$${item.debtAmount.toFixed(2)}` : '$0.00'}{' '}
+                          {item.currency}
+                        </Text>
+                        {item.hasDebt && onNavigateTab && (
+                          <TouchableOpacity
+                            style={styles.payCardQuickButton}
+                            onPress={() => onNavigateTab('TRANSACTIONS')}
+                            activeOpacity={0.7}
+                          >
+                            <Ionicons
+                              name="arrow-forward"
+                              size={11}
+                              color="#6366f1"
+                              style={{ marginRight: 2 }}
+                            />
+                            <Text style={styles.payCardQuickText}>Pagar</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              )}
             </View>
 
             {/* Desglose de Canastas de Liquidez Líquida */}
@@ -857,5 +1038,177 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#f8fafc',
     fontWeight: '600',
+  },
+  // Monthly metrics styles (US-017)
+  txCountBadge: {
+    backgroundColor: '#334155',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  txCountBadgeText: {
+    fontSize: 11,
+    color: '#94a3b8',
+    fontWeight: '600',
+  },
+  monthlySavingsCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#1e293b',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  monthlySavingsLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  monthlySavingsLabel: {
+    fontSize: 11,
+    color: '#94a3b8',
+    textTransform: 'uppercase',
+    fontWeight: '600',
+  },
+  monthlySavingsValue: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#10b981',
+    marginTop: 2,
+  },
+  savingsRateBadge: {
+    backgroundColor: '#10b98115',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#10b98144',
+  },
+  savingsRateText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#10b981',
+  },
+  // Credit obligations styles (US-017)
+  obligationsStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  obligationsDebtBadge: {
+    backgroundColor: '#ef444415',
+    borderColor: '#ef444444',
+  },
+  obligationsClearBadge: {
+    backgroundColor: '#10b98115',
+    borderColor: '#10b98144',
+  },
+  obligationsStatusText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  noCreditCardsCard: {
+    backgroundColor: '#1e293b',
+    borderRadius: 14,
+    padding: 20,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#334155',
+    gap: 6,
+  },
+  noCreditCardsText: {
+    fontSize: 13,
+    color: '#64748b',
+    fontWeight: '500',
+  },
+  obligationsList: {
+    gap: 8,
+  },
+  obligationCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#1e293b',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  obligationCardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  obligationIconBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  obligationDebtIcon: {
+    backgroundColor: '#ef444422',
+  },
+  obligationClearIcon: {
+    backgroundColor: '#10b98122',
+  },
+  obligationCardName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#f8fafc',
+  },
+  obligationCardStatus: {
+    fontSize: 11,
+    color: '#94a3b8',
+    marginTop: 2,
+  },
+  obligationCardRight: {
+    alignItems: 'flex-end',
+    gap: 4,
+  },
+  obligationAmount: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  obligationDebtAmount: {
+    color: '#ef4444',
+  },
+  obligationClearAmount: {
+    color: '#10b981',
+  },
+  payCardQuickButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#6366f115',
+    borderWidth: 1,
+    borderColor: '#6366f144',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  payCardQuickText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#6366f1',
+  },
+  obligationDatesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 3,
+    gap: 4,
+  },
+  obligationDateText: {
+    fontSize: 10,
+    color: '#38bdf8',
+    fontWeight: '600',
+  },
+  obligationDateDot: {
+    fontSize: 10,
+    color: '#64748b',
   },
 });
