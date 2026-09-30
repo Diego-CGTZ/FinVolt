@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './src/application/state/AuthContext';
 import { AccountsProvider } from './src/application/state/AccountsContext';
 import { CategoriesProvider } from './src/application/state/CategoriesContext';
 import { TransactionsProvider } from './src/application/state/TransactionsContext';
+import { NotificationProvider } from './src/application/state/NotificationContext';
 import { AuthScreen } from './src/presentation/screens/AuthScreen';
 import { AccountsScreen } from './src/presentation/screens/AccountsScreen';
 import { AddExpenseScreen } from './src/presentation/screens/AddExpenseScreen';
@@ -96,7 +97,9 @@ function RootNavigator() {
       <AccountsProvider>
         <CategoriesProvider>
           <TransactionsProvider>
-            <MainTabs />
+            <NotificationProvider>
+              <MainTabs />
+            </NotificationProvider>
           </TransactionsProvider>
         </CategoriesProvider>
       </AccountsProvider>
