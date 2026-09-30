@@ -240,7 +240,11 @@ async function runTests() {
   console.log('\n[DONE] ¡Todos los tests de US-018 pasaron exitosamente (6/6)!');
 }
 
-runTests().catch((err) => {
-  console.error('[ERROR] Error en pruebas:', err);
-  process.exit(1);
-});
+export { runTests as runRawEventServiceTests };
+
+if (process.argv[1] && process.argv[1].includes('RawEventService.test')) {
+  runTests().catch((err) => {
+    console.error('[ERROR] Error en pruebas:', err);
+    process.exit(1);
+  });
+}

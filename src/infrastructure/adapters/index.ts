@@ -1,8 +1,25 @@
+import { FinancialSourceAdapterRegistry } from '../../domain/services/FinancialSourceAdapterRegistry';
+import { AndroidNotificationAdapter } from './AndroidNotificationAdapter';
+import { EmailFinancialAdapter } from './EmailFinancialAdapter';
+import { PdfStatementAdapter } from './PdfStatementAdapter';
+import { CsvStatementAdapter } from './CsvStatementAdapter';
+import { XlsxStatementAdapter } from './XlsxStatementAdapter';
+
+export * from './AndroidNotificationAdapter';
+export * from './EmailFinancialAdapter';
+export * from './PdfStatementAdapter';
+export * from './CsvStatementAdapter';
+export * from './XlsxStatementAdapter';
+
 /**
- * INFRASTRUCTURE — Adapters barrel
- *
- * Concrete implementations of IFinancialSourceAdapter and similar interfaces.
- * Future: NotificationAdapter (US-020), GmailAdapter (US-033),
- * OutlookAdapter (US-035), PdfAdapter (US-037).
+ * Crea e inicializa el registro con todos los adaptadores de fuentes financieras soportados (US-019).
  */
-export {};
+export function createDefaultAdapterRegistry(): FinancialSourceAdapterRegistry {
+  return new FinancialSourceAdapterRegistry([
+    new AndroidNotificationAdapter(),
+    new EmailFinancialAdapter(),
+    new PdfStatementAdapter(),
+    new CsvStatementAdapter(),
+    new XlsxStatementAdapter(),
+  ]);
+}
