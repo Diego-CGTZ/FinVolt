@@ -448,6 +448,9 @@ export interface CreditObligation {
   currency: string;
   debtAmount: number;
   hasDebt: boolean;
+  creditLimit?: number;
+  cutoffDay?: number;
+  paymentDueDay?: number;
 }
 
 export interface CreditObligationsSummary {
@@ -484,6 +487,9 @@ export function calculateCreditObligations(
       currency: card.currency,
       debtAmount,
       hasDebt,
+      creditLimit: card.creditLimit,
+      cutoffDay: card.cutoffDay,
+      paymentDueDay: card.paymentDueDay,
     };
   });
 

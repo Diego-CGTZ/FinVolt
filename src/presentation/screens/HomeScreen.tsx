@@ -378,11 +378,28 @@ export function HomeScreen({ onNavigateTab }: HomeScreenProps) {
                             color={item.hasDebt ? '#ef4444' : '#10b981'}
                           />
                         </View>
-                        <View>
+                        <View style={{ flex: 1 }}>
                           <Text style={styles.obligationCardName}>{item.accountName}</Text>
                           <Text style={styles.obligationCardStatus}>
                             {item.hasDebt ? 'Pago pendiente' : 'Al corriente (Sin deuda)'}
                           </Text>
+                          {(item.cutoffDay || item.paymentDueDay) && (
+                            <View style={styles.obligationDatesRow}>
+                              {item.cutoffDay ? (
+                                <Text style={styles.obligationDateText}>
+                                  Corte día {item.cutoffDay}
+                                </Text>
+                              ) : null}
+                              {item.cutoffDay && item.paymentDueDay ? (
+                                <Text style={styles.obligationDateDot}>•</Text>
+                              ) : null}
+                              {item.paymentDueDay ? (
+                                <Text style={[styles.obligationDateText, { color: '#f59e0b' }]}>
+                                  Pago día {item.paymentDueDay}
+                                </Text>
+                              ) : null}
+                            </View>
+                          )}
                         </View>
                       </View>
 
@@ -1178,5 +1195,20 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#6366f1',
+  },
+  obligationDatesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 3,
+    gap: 4,
+  },
+  obligationDateText: {
+    fontSize: 10,
+    color: '#38bdf8',
+    fontWeight: '600',
+  },
+  obligationDateDot: {
+    fontSize: 10,
+    color: '#64748b',
   },
 });

@@ -8,6 +8,9 @@ export interface Account {
   type: AccountType;
   currency: string;
   initialBalance: number;
+  creditLimit?: number;
+  cutoffDay?: number;
+  paymentDueDay?: number;
   createdAt: Date;
   updatedAt: Date;
 }

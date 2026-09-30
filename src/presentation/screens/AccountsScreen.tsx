@@ -18,7 +18,7 @@ import {
   calculateAggregateBalances,
   calculateLiquidityMetrics,
 } from '../../domain/services/BalanceCalculatorService';
-import type { AccountType } from '../../domain/models/Account';
+import type { Account, AccountType } from '../../domain/models/Account';
 
 export const ACCOUNT_TYPE_CONFIG: Record<
   AccountType,
@@ -78,9 +78,10 @@ const ACCOUNT_TYPES: AccountType[] = [
 ];
 
 export const AccountsScreen = () => {
-  const { accounts, isLoading, createAccount, deleteAccount } = useAccounts();
+  const { accounts, isLoading, createAccount, updateAccount, deleteAccount } = useAccounts();
   const { transactions } = useTransactions();
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [editingAccount, setEditingAccount] = useState<Account | null>(null);
 
   // Cómputo de balances y liquidez real (US-015 / US-016)
   const aggregates = useMemo(
@@ -94,8 +95,8 @@ export const AccountsScreen = () => {
   );
 
   // Wizard state:
-  // For standard accounts: 1: Nombre, 2: Tipo, 3: Saldo, 4: Resumen
-  // For credit cards: 1: Nombre, 2: Tipo, 3: Límite crédito, 4: Saldo utilizado, 5: Resumen
+  // For standard accounts: 1: Nombre, 2: Tipo, 3: Saldo, 4: Resumen (total 4)
+  // For credit cards: 1: Nombre, 2: Tipo, 3: Límite crédito, 4: Saldo utilizado, 5: Fechas corte/pago, 6: Resumen (total 6)
   const [step, setStep] = useState<number>(1);
 
   // Form fields
@@ -105,19 +106,45 @@ export const AccountsScreen = () => {
   const [balance, setBalance] = useState('');
   const [creditLimit, setCreditLimit] = useState('');
   const [usedBalance, setUsedBalance] = useState('');
+  const [cutoffDay, setCutoffDay] = useState('');
+  const [paymentDueDay, setPaymentDueDay] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isCredit = type === 'CREDIT_CARD';
-  const totalSteps = isCredit ? 5 : 4;
+  const totalSteps = isCredit ? 6 : 4;
 
   const resetForm = () => {
     setStep(1);
+    setEditingAccount(null);
     setName('');
     setType('CHECKING');
     setBalance('');
     setCreditLimit('');
     setUsedBalance('');
+    setCutoffDay('');
+    setPaymentDueDay('');
     setIsModalVisible(false);
+  };
+
+  const handleOpenEdit = (account: Account) => {
+    setEditingAccount(account);
+    setName(account.name);
+    setType(account.type);
+    if (account.type === 'CREDIT_CARD') {
+      setCreditLimit(account.creditLimit ? account.creditLimit.toString() : '');
+      setUsedBalance(account.initialBalance < 0 ? Math.abs(account.initialBalance).toString() : '0');
+      setCutoffDay(account.cutoffDay ? account.cutoffDay.toString() : '');
+      setPaymentDueDay(account.paymentDueDay ? account.paymentDueDay.toString() : '');
+      setBalance('');
+    } else {
+      setBalance(account.initialBalance.toString());
+      setCreditLimit('');
+      setUsedBalance('');
+      setCutoffDay('');
+      setPaymentDueDay('');
+    }
+    setStep(1);
+    setIsModalVisible(true);
   };
 
   const handleNextStep = () => {
@@ -130,16 +157,14 @@ export const AccountsScreen = () => {
     } else if (step === 2) {
       setStep(3);
     } else if (step === 3) {
-      if (!isCredit) {
-        // Standard account: proceed to summary
-        setStep(4);
-      } else {
-        // Credit card: proceed to used balance step
-        setStep(4);
-      }
+      setStep(4);
     } else if (step === 4) {
       if (isCredit) {
         setStep(5);
+      }
+    } else if (step === 5) {
+      if (isCredit) {
+        setStep(6);
       }
     }
   };
@@ -150,32 +175,63 @@ export const AccountsScreen = () => {
     }
   };
 
-  const handleCreate = async () => {
+  const handleSave = async () => {
     try {
       setIsSubmitting(true);
 
       let initialBalanceNumber = 0;
+      let parsedCreditLimit: number | undefined = undefined;
+      let parsedCutoffDay: number | undefined = undefined;
+      let parsedPaymentDueDay: number | undefined = undefined;
 
       if (type === 'CREDIT_CARD') {
         const parsedUsed = parseFloat(usedBalance);
-        // Saldo deudor inicial (negativo)
         initialBalanceNumber = !isNaN(parsedUsed) && parsedUsed > 0 ? -parsedUsed : 0;
+
+        const numLimit = parseFloat(creditLimit);
+        parsedCreditLimit = !isNaN(numLimit) ? numLimit : undefined;
+
+        const numCutoff = parseInt(cutoffDay, 10);
+        if (!isNaN(numCutoff) && numCutoff >= 1 && numCutoff <= 31) {
+          parsedCutoffDay = numCutoff;
+        }
+
+        const numDue = parseInt(paymentDueDay, 10);
+        if (!isNaN(numDue) && numDue >= 1 && numDue <= 31) {
+          parsedPaymentDueDay = numDue;
+        }
       } else {
         const parsedBalance = parseFloat(balance);
         initialBalanceNumber = !isNaN(parsedBalance) ? parsedBalance : 0;
       }
 
-      await createAccount({
-        name: name.trim(),
-        type,
-        currency,
-        initialBalance: initialBalanceNumber,
-      });
+      if (editingAccount) {
+        await updateAccount(editingAccount.id, {
+          name: name.trim(),
+          type,
+          currency,
+          initialBalance: initialBalanceNumber,
+          creditLimit: parsedCreditLimit,
+          cutoffDay: parsedCutoffDay,
+          paymentDueDay: parsedPaymentDueDay,
+        });
+        Alert.alert('Cuenta actualizada', `Los cambios en "${name.trim()}" han sido guardados.`);
+      } else {
+        await createAccount({
+          name: name.trim(),
+          type,
+          currency,
+          initialBalance: initialBalanceNumber,
+          creditLimit: parsedCreditLimit,
+          cutoffDay: parsedCutoffDay,
+          paymentDueDay: parsedPaymentDueDay,
+        });
+        Alert.alert('Cuenta creada', `Tu cuenta "${name.trim()}" ha sido agregada con éxito.`);
+      }
 
       resetForm();
-      Alert.alert('Cuenta creada', `Tu cuenta "${name.trim()}" ha sido agregada con éxito.`);
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'No se pudo crear la cuenta');
+      Alert.alert('Error', err.message || 'No se pudo guardar la cuenta');
     } finally {
       setIsSubmitting(false);
     }
@@ -341,13 +397,50 @@ export const AccountsScreen = () => {
                       {config.label}
                     </Text>
                   </View>
-                  <TouchableOpacity
-                    style={styles.deleteButton}
-                    onPress={() => handleDelete(item.id, item.name)}
-                  >
-                    <Ionicons name="trash-outline" size={16} color="#94a3b8" />
-                  </TouchableOpacity>
+                  <View style={styles.cardActions}>
+                    <TouchableOpacity
+                      style={styles.editButton}
+                      onPress={() => handleOpenEdit(item)}
+                    >
+                      <Ionicons name="pencil-outline" size={16} color="#6366f1" />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.deleteButton}
+                      onPress={() => handleDelete(item.id, item.name)}
+                    >
+                      <Ionicons name="trash-outline" size={16} color="#94a3b8" />
+                    </TouchableOpacity>
+                  </View>
                 </View>
+
+                {isItemCredit && (item.creditLimit || item.cutoffDay || item.paymentDueDay) ? (
+                  <View style={styles.creditCardDetailsRow}>
+                    {item.creditLimit ? (
+                      <View style={styles.creditDetailItem}>
+                        <Ionicons name="speedometer-outline" size={12} color="#0891b2" style={{ marginRight: 4 }} />
+                        <Text style={styles.creditDetailText}>
+                          Límite: ${item.creditLimit.toFixed(2)}
+                        </Text>
+                      </View>
+                    ) : null}
+                    {item.cutoffDay ? (
+                      <View style={styles.creditDetailItem}>
+                        <Ionicons name="calendar-outline" size={12} color="#38bdf8" style={{ marginRight: 4 }} />
+                        <Text style={styles.creditDetailText}>
+                          Corte día {item.cutoffDay}
+                        </Text>
+                      </View>
+                    ) : null}
+                    {item.paymentDueDay ? (
+                      <View style={styles.creditDetailItem}>
+                        <Ionicons name="time-outline" size={12} color="#f59e0b" style={{ marginRight: 4 }} />
+                        <Text style={[styles.creditDetailText, { color: '#f59e0b' }]}>
+                          Pago día {item.paymentDueDay}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
+                ) : null}
 
                 <View style={styles.cardFooter}>
                   <View>
@@ -408,7 +501,7 @@ export const AccountsScreen = () => {
               <View style={styles.stepIndicatorRow}>
                 <View style={styles.stepBadge}>
                   <Text style={styles.stepText}>
-                    Paso {step} de {totalSteps}
+                    {editingAccount ? 'Editar • ' : ''}Paso {step} de {totalSteps}
                   </Text>
                 </View>
                 <TouchableOpacity onPress={resetForm} style={styles.closeWizardBtn}>
@@ -462,6 +555,25 @@ export const AccountsScreen = () => {
                     </View>
                   )}
                 </View>
+
+                {isCredit && (cutoffDay || paymentDueDay) ? (
+                  <View style={styles.virtualCardDatesRow}>
+                    {cutoffDay ? (
+                      <View style={styles.virtualCardDateItem}>
+                        <Ionicons name="calendar-outline" size={11} color="#38bdf8" style={{ marginRight: 3 }} />
+                        <Text style={styles.virtualCardDateText}>Corte: día {cutoffDay}</Text>
+                      </View>
+                    ) : null}
+                    {paymentDueDay ? (
+                      <View style={styles.virtualCardDateItem}>
+                        <Ionicons name="time-outline" size={11} color="#f59e0b" style={{ marginRight: 3 }} />
+                        <Text style={[styles.virtualCardDateText, { color: '#f59e0b' }]}>
+                          Pago: día {paymentDueDay}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
+                ) : null}
               </View>
             </View>
 
@@ -685,13 +797,133 @@ export const AccountsScreen = () => {
                 </View>
               )}
 
-              {/* PASO FINAL: Resumen & Confirmación (Paso 4 para estándar, Paso 5 para crédito) */}
-              {((!isCredit && step === 4) || (isCredit && step === 5)) && (
+              {/* PASO 5 (Para Crédito): Fechas de Corte y Pago (Opcional) */}
+              {step === 5 && isCredit && (
+                <View style={styles.stepView}>
+                  <View style={styles.stepIconBadge}>
+                    <Ionicons name="calendar-outline" size={28} color="#0891b2" />
+                  </View>
+                  <Text style={styles.stepTitle}>Fechas de Corte y Pago</Text>
+                  <Text style={styles.stepSubtitle}>
+                    Controla tu ciclo de facturación y evita pagar intereses innecesarios (opcional).
+                  </Text>
+
+                  {/* Bloque Día de Corte */}
+                  <View style={styles.dateConfigCard}>
+                    <View style={styles.dateConfigHeader}>
+                      <Ionicons name="calendar" size={18} color="#38bdf8" />
+                      <Text style={styles.dateConfigTitle}>Día de Corte Mensual</Text>
+                      <View style={styles.optionalBadge}>
+                        <Text style={styles.optionalBadgeText}>Opcional</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.dateConfigHelp}>
+                      Día del mes en que tu banco cierra los cargos del período (1 al 31).
+                    </Text>
+                    <View style={styles.dateInputRow}>
+                      <TextInput
+                        style={styles.dayInput}
+                        placeholder="15"
+                        placeholderTextColor="#64748b"
+                        keyboardType="numeric"
+                        maxLength={2}
+                        value={cutoffDay}
+                        onChangeText={(txt) => {
+                          const clean = txt.replace(/[^0-9]/g, '');
+                          if (clean === '' || (parseInt(clean, 10) >= 1 && parseInt(clean, 10) <= 31)) {
+                            setCutoffDay(clean);
+                          }
+                        }}
+                      />
+                      <Text style={styles.dayInputSuffix}>de cada mes</Text>
+                    </View>
+                    <View style={styles.quickDayRow}>
+                      {['5', '10', '15', '20', '25', '28'].map((day) => (
+                        <TouchableOpacity
+                          key={day}
+                          style={[
+                            styles.quickDayChip,
+                            cutoffDay === day && styles.quickDayChipActive,
+                          ]}
+                          onPress={() => setCutoffDay(cutoffDay === day ? '' : day)}
+                        >
+                          <Text
+                            style={[
+                              styles.quickDayText,
+                              cutoffDay === day && styles.quickDayTextActive,
+                            ]}
+                          >
+                            Día {day}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+
+                  {/* Bloque Día Límite de Pago */}
+                  <View style={styles.dateConfigCard}>
+                    <View style={styles.dateConfigHeader}>
+                      <Ionicons name="time" size={18} color="#f59e0b" />
+                      <Text style={styles.dateConfigTitle}>Día Límite de Pago</Text>
+                      <View style={styles.optionalBadge}>
+                        <Text style={styles.optionalBadgeText}>Opcional</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.dateConfigHelp}>
+                      Fecha límite del mes para liquidar tu saldo y evitar intereses (1 al 31).
+                    </Text>
+                    <View style={styles.dateInputRow}>
+                      <TextInput
+                        style={styles.dayInput}
+                        placeholder="5"
+                        placeholderTextColor="#64748b"
+                        keyboardType="numeric"
+                        maxLength={2}
+                        value={paymentDueDay}
+                        onChangeText={(txt) => {
+                          const clean = txt.replace(/[^0-9]/g, '');
+                          if (clean === '' || (parseInt(clean, 10) >= 1 && parseInt(clean, 10) <= 31)) {
+                            setPaymentDueDay(clean);
+                          }
+                        }}
+                      />
+                      <Text style={styles.dayInputSuffix}>de cada mes</Text>
+                    </View>
+                    <View style={styles.quickDayRow}>
+                      {['1', '5', '10', '15', '20', '25'].map((day) => (
+                        <TouchableOpacity
+                          key={day}
+                          style={[
+                            styles.quickDayChip,
+                            styles.quickPayChip,
+                            paymentDueDay === day && styles.quickPayChipActive,
+                          ]}
+                          onPress={() => setPaymentDueDay(paymentDueDay === day ? '' : day)}
+                        >
+                          <Text
+                            style={[
+                              styles.quickDayText,
+                              paymentDueDay === day && styles.quickPayTextActive,
+                            ]}
+                          >
+                            Día {day}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                </View>
+              )}
+
+              {/* PASO FINAL: Resumen & Confirmación (Paso 4 para estándar, Paso 6 para crédito) */}
+              {((!isCredit && step === 4) || (isCredit && step === 6)) && (
                 <View style={styles.stepView}>
                   <View style={styles.stepIconBadge}>
                     <Ionicons name="checkmark-done-circle-outline" size={28} color="#10b981" />
                   </View>
-                  <Text style={styles.stepTitle}>Confirma tu nueva cuenta</Text>
+                  <Text style={styles.stepTitle}>
+                    {editingAccount ? 'Confirma los cambios' : 'Confirma tu nueva cuenta'}
+                  </Text>
                   <Text style={styles.stepSubtitle}>
                     Revisa que todos los datos sean correctos antes de guardar.
                   </Text>
@@ -742,6 +974,27 @@ export const AccountsScreen = () => {
                             ${calculatedAvailable.toFixed(2)} {currency}
                           </Text>
                         </View>
+                        {(cutoffDay || paymentDueDay) ? (
+                          <>
+                            <View style={styles.confirmationDivider} />
+                            {cutoffDay ? (
+                              <View style={styles.confirmationRow}>
+                                <Text style={styles.confirmationLabel}>Día de corte mensual:</Text>
+                                <Text style={[styles.confirmationValue, { color: '#38bdf8' }]}>
+                                  Día {cutoffDay} de cada mes
+                                </Text>
+                              </View>
+                            ) : null}
+                            {paymentDueDay ? (
+                              <View style={styles.confirmationRow}>
+                                <Text style={styles.confirmationLabel}>Día límite de pago:</Text>
+                                <Text style={[styles.confirmationValue, { color: '#f59e0b' }]}>
+                                  Día {paymentDueDay} de cada mes
+                                </Text>
+                              </View>
+                            ) : null}
+                          </>
+                        ) : null}
                       </>
                     )}
                   </View>
@@ -772,7 +1025,7 @@ export const AccountsScreen = () => {
               ) : (
                 <TouchableOpacity
                   style={[styles.primaryButton, styles.finishButton]}
-                  onPress={handleCreate}
+                  onPress={handleSave}
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? (
@@ -780,7 +1033,9 @@ export const AccountsScreen = () => {
                   ) : (
                     <>
                       <Ionicons name="checkmark-circle" size={18} color="#fff" style={{ marginRight: 6 }} />
-                      <Text style={styles.primaryButtonText}>Crear Cuenta</Text>
+                      <Text style={styles.primaryButtonText}>
+                        {editingAccount ? 'Guardar Cambios' : 'Crear Cuenta'}
+                      </Text>
                     </>
                   )}
                 </TouchableOpacity>
@@ -930,8 +1185,43 @@ const styles = StyleSheet.create({
     color: '#38bdf8',
     fontWeight: '600',
   },
+  cardActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  editButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: '#6366f115',
+  },
   deleteButton: {
     padding: 8,
+    borderRadius: 8,
+  },
+  creditCardDetailsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#33415544',
+  },
+  creditDetailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0f172a',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  creditDetailText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#38bdf8',
   },
   cardFooter: {
     flexDirection: 'row',
@@ -1455,5 +1745,128 @@ const styles = StyleSheet.create({
   },
   liquidityDebtPill: {
     borderColor: '#ef444444',
+  },
+  // Virtual Card Dates
+  virtualCardDatesRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#33415555',
+  },
+  virtualCardDateItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0f172a88',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  virtualCardDateText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#38bdf8',
+  },
+  // Step 5 Date Configuration
+  dateConfigCard: {
+    backgroundColor: '#0f172a',
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#334155',
+    marginBottom: 16,
+  },
+  dateConfigHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  dateConfigTitle: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#f8fafc',
+    marginLeft: 8,
+    flex: 1,
+  },
+  optionalBadge: {
+    backgroundColor: '#334155',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  optionalBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#94a3b8',
+    textTransform: 'uppercase',
+  },
+  dateConfigHelp: {
+    fontSize: 12,
+    color: '#94a3b8',
+    lineHeight: 16,
+    marginBottom: 14,
+  },
+  dateInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1e293b',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#334155',
+    marginBottom: 12,
+  },
+  dayInput: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#f8fafc',
+    minWidth: 40,
+    textAlign: 'center',
+    padding: 0,
+  },
+  dayInputSuffix: {
+    fontSize: 14,
+    color: '#64748b',
+    fontWeight: '600',
+    marginLeft: 10,
+  },
+  quickDayRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  quickDayChip: {
+    backgroundColor: '#1e293b',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  quickDayChipActive: {
+    backgroundColor: '#0891b222',
+    borderColor: '#0891b2',
+  },
+  quickPayChip: {
+    borderColor: '#334155',
+  },
+  quickPayChipActive: {
+    backgroundColor: '#f59e0b22',
+    borderColor: '#f59e0b',
+  },
+  quickDayText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#94a3b8',
+  },
+  quickDayTextActive: {
+    color: '#38bdf8',
+    fontWeight: '700',
+  },
+  quickPayTextActive: {
+    color: '#f59e0b',
+    fontWeight: '700',
   },
 });

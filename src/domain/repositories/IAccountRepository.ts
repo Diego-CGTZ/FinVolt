@@ -15,6 +15,14 @@ export interface IAccountRepository {
   ): Promise<Account>;
 
   /**
+   * Actualiza una cuenta financiera existente.
+   */
+  updateAccount(
+    id: string,
+    updates: Partial<Omit<Account, 'id' | 'createdAt' | 'updatedAt' | 'userId'>>,
+  ): Promise<Account>;
+
+  /**
    * Elimina una cuenta financiera.
    */
   deleteAccount(id: string): Promise<void>;

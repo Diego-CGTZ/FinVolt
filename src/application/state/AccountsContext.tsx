@@ -11,6 +11,10 @@ type AccountsState = {
   createAccount: (
     account: Omit<Account, 'id' | 'createdAt' | 'updatedAt' | 'userId'>,
   ) => Promise<void>;
+  updateAccount: (
+    id: string,
+    updates: Partial<Omit<Account, 'id' | 'createdAt' | 'updatedAt' | 'userId'>>,
+  ) => Promise<Account>;
   deleteAccount: (id: string) => Promise<void>;
 };
 
@@ -53,6 +57,20 @@ export const AccountsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
+  const updateAccount = async (
+    id: string,
+    updates: Partial<Omit<Account, 'id' | 'createdAt' | 'updatedAt' | 'userId'>>,
+  ): Promise<Account> => {
+    try {
+      const updated = await repository.updateAccount(id, updates);
+      setAccounts((prev) => prev.map((a) => (a.id === id ? updated : a)));
+      return updated;
+    } catch (err: any) {
+      setError(err.message || 'Error updating account');
+      throw err;
+    }
+  };
+
   const deleteAccount = async (id: string) => {
     try {
       await repository.deleteAccount(id);
@@ -83,7 +101,15 @@ export const AccountsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   return (
     <AccountsContext.Provider
-      value={{ accounts, isLoading, error, loadAccounts, createAccount, deleteAccount }}
+      value={{
+        accounts,
+        isLoading,
+        error,
+        loadAccounts,
+        createAccount,
+        updateAccount,
+        deleteAccount,
+      }}
     >
       {children}
     </AccountsContext.Provider>
