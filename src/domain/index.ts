@@ -6,4 +6,7 @@
  *
  * Barrel exports are added here as each sub-module exposes real types.
  */
-export {};
+export * from './models/RawEvent';
+export * from './interfaces/FinancialSourceAdapter';
+export * from './services/FinancialSourceAdapterRegistry';
+export * from './services/RawEventService';
