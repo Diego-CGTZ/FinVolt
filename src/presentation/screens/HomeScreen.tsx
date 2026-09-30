@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../application/state/AuthContext';
 import { useAccounts } from '../../application/state/AccountsContext';
 import { useTransactions } from '../../application/state/TransactionsContext';
+import { useNotificationIngestion } from '../../application/state/NotificationContext';
 import {
   calculateAggregateBalances,
   calculateLiquidityMetrics,
@@ -39,6 +40,13 @@ export function HomeScreen({ onNavigateTab }: HomeScreenProps) {
   const { user, signOut } = useAuth();
   const { accounts, isLoading: accountsLoading } = useAccounts();
   const { transactions, isLoading: txLoading } = useTransactions();
+  const {
+    isPermissionGranted: isNotificationGranted,
+    requestPermission: requestNotificationPermission,
+    simulateNotification,
+    lastCapturedEvent,
+  } = useNotificationIngestion();
+  const [isSimulatingNotification, setIsSimulatingNotification] = useState(false);
 
   const aggregates = useMemo(
     () => calculateAggregateBalances(accounts, transactions),
@@ -564,6 +572,123 @@ export function HomeScreen({ onNavigateTab }: HomeScreenProps) {
                   })}
                 </View>
               )}
+            </View>
+
+            {/* Sección: Detección Automática Android (US-020) */}
+            <View style={styles.sectionContainer}>
+              <View style={styles.sectionHeaderRow}>
+                <View style={styles.sectionHeaderWithIcon}>
+                  <Ionicons name="notifications-outline" size={17} color="#6366f1" />
+                  <Text style={styles.sectionTitle}>Detección Automática (Android)</Text>
+                </View>
+                <View
+                  style={[
+                    styles.notificationStatusBadge,
+                    isNotificationGranted
+                      ? styles.notificationBadgeActive
+                      : styles.notificationBadgeInactive,
+                  ]}
+                >
+                  <Ionicons
+                    name={isNotificationGranted ? 'shield-checkmark-outline' : 'shield-outline'}
+                    size={12}
+                    color={isNotificationGranted ? '#10b981' : '#f59e0b'}
+                    style={{ marginRight: 4 }}
+                  />
+                  <Text
+                    style={[
+                      styles.notificationStatusText,
+                      { color: isNotificationGranted ? '#10b981' : '#f59e0b' },
+                    ]}
+                  >
+                    {isNotificationGranted ? 'Activo' : 'Permiso Pendiente'}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.notificationCard}>
+                <Text style={styles.notificationCardDesc}>
+                  Captura notificaciones bancarias entrantes en segundo plano y las canaliza de forma segura al pipeline de eventos crudos sin tocar tus transacciones directamente.
+                </Text>
+
+                {lastCapturedEvent && (
+                  <View style={styles.capturedEventCard}>
+                    <View style={styles.capturedEventHeader}>
+                      <Ionicons name="flash-outline" size={13} color="#38bdf8" />
+                      <Text style={styles.capturedEventTitle}>Último Evento Crudo Registrado</Text>
+                    </View>
+                    <Text style={styles.capturedEventBody} numberOfLines={2}>
+                      {(lastCapturedEvent.payload as { title?: string; text?: string })?.title || 'Notificación'}:{' '}
+                      {(lastCapturedEvent.payload as { title?: string; text?: string })?.text || ''}
+                    </Text>
+                    <View style={styles.capturedEventFooter}>
+                      <Text style={styles.capturedEventMeta}>
+                        Origen: {lastCapturedEvent.source}
+                      </Text>
+                      <Text style={styles.capturedEventMeta}>
+                        Estado: {lastCapturedEvent.status}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+
+                <View style={styles.notificationActionsRow}>
+                  {!isNotificationGranted && (
+                    <TouchableOpacity
+                      style={styles.notificationPermButton}
+                      onPress={async () => {
+                        try {
+                          await requestNotificationPermission();
+                        } catch {
+                          Alert.alert('Error', 'No se pudo abrir la configuración del sistema.');
+                        }
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="settings-outline" size={14} color="#ffffff" style={{ marginRight: 6 }} />
+                      <Text style={styles.notificationPermButtonText}>Habilitar en Ajustes</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  <TouchableOpacity
+                    style={[
+                      styles.notificationSimButton,
+                      isSimulatingNotification && { opacity: 0.6 },
+                    ]}
+                    disabled={isSimulatingNotification}
+                    onPress={async () => {
+                      setIsSimulatingNotification(true);
+                      try {
+                        await simulateNotification({
+                          packageName: 'com.bbva.bancomer',
+                          title: 'BBVA México',
+                          text: 'Compra con tarjeta por $349.00 en Mercado Pago',
+                        });
+                        Alert.alert(
+                          'Simulación Exitosa',
+                          'Se procesó una notificación de prueba de BBVA e ingresó a la bandeja de eventos crudos.',
+                        );
+                      } catch (err: unknown) {
+                        const message = err instanceof Error ? err.message : 'Error al procesar la simulación';
+                        Alert.alert('Error', message);
+                      } finally {
+                        setIsSimulatingNotification(false);
+                      }
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons
+                      name="flask-outline"
+                      size={14}
+                      color="#6366f1"
+                      style={{ marginRight: 6 }}
+                    />
+                    <Text style={styles.notificationSimButtonText}>
+                      {isSimulatingNotification ? 'Procesando...' : 'Simular Notificación BBVA'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
             </View>
 
             {/* Accesos directos rápidos */}
@@ -1211,4 +1336,113 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#64748b',
   },
+  // Notification card styles (US-020)
+  sectionHeaderWithIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  notificationStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  notificationBadgeActive: {
+    backgroundColor: '#10b98115',
+    borderColor: '#10b98144',
+  },
+  notificationBadgeInactive: {
+    backgroundColor: '#f59e0b15',
+    borderColor: '#f59e0b44',
+  },
+  notificationStatusText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  notificationCard: {
+    backgroundColor: '#1e293b',
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#334155',
+    gap: 12,
+  },
+  notificationCardDesc: {
+    fontSize: 12,
+    color: '#94a3b8',
+    lineHeight: 18,
+  },
+  capturedEventCard: {
+    backgroundColor: '#0f172a',
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#334155',
+    gap: 6,
+  },
+  capturedEventHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  capturedEventTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#38bdf8',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  capturedEventBody: {
+    fontSize: 13,
+    color: '#f8fafc',
+    fontWeight: '500',
+  },
+  capturedEventFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  capturedEventMeta: {
+    fontSize: 10,
+    color: '#64748b',
+    fontWeight: '600',
+  },
+  notificationActionsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  notificationPermButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#6366f1',
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 8,
+  },
+  notificationPermButtonText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  notificationSimButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#6366f115',
+    borderWidth: 1,
+    borderColor: '#6366f144',
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 8,
+  },
+  notificationSimButtonText: {
+    color: '#6366f1',
+    fontSize: 12,
+    fontWeight: '700',
+  },
 });
+
