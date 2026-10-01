@@ -45,6 +45,7 @@ export function HomeScreen({ onNavigateTab }: HomeScreenProps) {
     requestPermission: requestNotificationPermission,
     simulateNotification,
     lastCapturedEvent,
+    lastCandidate,
   } = useNotificationIngestion();
   const [isSimulatingNotification, setIsSimulatingNotification] = useState(false);
 
@@ -615,7 +616,7 @@ export function HomeScreen({ onNavigateTab }: HomeScreenProps) {
                   <View style={styles.capturedEventCard}>
                     <View style={styles.capturedEventHeader}>
                       <Ionicons name="flash-outline" size={13} color="#38bdf8" />
-                      <Text style={styles.capturedEventTitle}>Último Evento Crudo Registrado</Text>
+                      <Text style={styles.capturedEventTitle}>Paso 1: Evento Crudo (US-018)</Text>
                     </View>
                     <Text style={styles.capturedEventBody} numberOfLines={2}>
                       {(lastCapturedEvent.payload as { title?: string; text?: string })?.title || 'Notificación'}:{' '}
@@ -629,6 +630,57 @@ export function HomeScreen({ onNavigateTab }: HomeScreenProps) {
                         Estado: {lastCapturedEvent.status}
                       </Text>
                     </View>
+                  </View>
+                )}
+
+                {lastCandidate && (
+                  <View style={styles.candidateCard}>
+                    <View style={styles.candidateHeader}>
+                      <View style={styles.candidateHeaderLeft}>
+                        <Ionicons name="sparkles-outline" size={13} color="#a855f7" />
+                        <Text style={styles.candidateTitle}>Paso 2: Candidato Generado (US-021)</Text>
+                      </View>
+                      <View style={styles.candidateConfidenceBadge}>
+                        <Text style={styles.candidateConfidenceText}>
+                          {lastCandidate.confidenceScore}% certeza
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.candidateDetailsRow}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.candidateMerchant} numberOfLines={1}>
+                          {lastCandidate.merchant || lastCandidate.merchantRaw || 'Comercio no especificado'}
+                        </Text>
+                        <Text style={styles.candidateProvider}>
+                          {lastCandidate.provider} •{' '}
+                          {lastCandidate.accountHint?.last4Digits
+                            ? `*${lastCandidate.accountHint.last4Digits}`
+                            : 'Sin cuenta vinculada'}
+                        </Text>
+                      </View>
+
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text
+                          style={[
+                            styles.candidateAmount,
+                            lastCandidate.type === 'EXPENSE'
+                              ? styles.candidateAmountExpense
+                              : styles.candidateAmountIncome,
+                          ]}
+                        >
+                          {lastCandidate.type === 'EXPENSE' ? '-' : '+'}${lastCandidate.amount.toFixed(2)}{' '}
+                          {lastCandidate.currency}
+                        </Text>
+                        <View style={styles.candidateStatusBadge}>
+                          <Text style={styles.candidateStatusText}>Pendiente de Conciliación</Text>
+                        </View>
+                      </View>
+                    </View>
+
+                    <Text style={styles.candidateDisclaimer}>
+                      Desacoplado de balances hasta confirmación o conciliación (US-023).
+                    </Text>
                   </View>
                 )}
 
@@ -659,14 +711,14 @@ export function HomeScreen({ onNavigateTab }: HomeScreenProps) {
                     onPress={async () => {
                       setIsSimulatingNotification(true);
                       try {
-                        await simulateNotification({
+                        const res = await simulateNotification({
                           packageName: 'com.bbva.bancomer',
                           title: 'BBVA México',
                           text: 'Compra con tarjeta por $349.00 en Mercado Pago',
                         });
                         Alert.alert(
-                          'Simulación Exitosa',
-                          'Se procesó una notificación de prueba de BBVA e ingresó a la bandeja de eventos crudos.',
+                          'Pipeline Completado (BBVA)',
+                          `Estado: ${res.status}\nProveedor: ${res.provider.displayName}\nMonto: $${res.candidate?.amount.toFixed(2) || '0.00'}\nComercio: ${res.candidate?.merchant || 'N/A'}`,
                         );
                       } catch (err: unknown) {
                         const message = err instanceof Error ? err.message : 'Error al procesar la simulación';
@@ -684,7 +736,85 @@ export function HomeScreen({ onNavigateTab }: HomeScreenProps) {
                       style={{ marginRight: 6 }}
                     />
                     <Text style={styles.notificationSimButtonText}>
-                      {isSimulatingNotification ? 'Procesando...' : 'Simular Notificación BBVA'}
+                      {isSimulatingNotification ? 'Procesando...' : 'Simular Compra BBVA ($349.00)'}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.notificationSimButton,
+                      styles.notificationSimButtonAlt,
+                      isSimulatingNotification && { opacity: 0.6 },
+                    ]}
+                    disabled={isSimulatingNotification}
+                    onPress={async () => {
+                      setIsSimulatingNotification(true);
+                      try {
+                        const res = await simulateNotification({
+                          packageName: 'mx.nu.app',
+                          title: 'Cuenta Nu',
+                          text: 'Transferencia recibida por $1,200.00 de Pedro Páramo concepto Pago freelance',
+                        });
+                        Alert.alert(
+                          'Pipeline Completado (Nu)',
+                          `Estado: ${res.status}\nProveedor: ${res.provider.displayName}\nTipo: ${res.candidate?.type || 'N/A'}\nMonto: +$${res.candidate?.amount.toFixed(2) || '0.00'}`,
+                        );
+                      } catch (err: unknown) {
+                        const message = err instanceof Error ? err.message : 'Error al procesar la simulación';
+                        Alert.alert('Error', message);
+                      } finally {
+                        setIsSimulatingNotification(false);
+                      }
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons
+                      name="arrow-down-circle-outline"
+                      size={14}
+                      color="#a855f7"
+                      style={{ marginRight: 6 }}
+                    />
+                    <Text style={[styles.notificationSimButtonText, { color: '#a855f7' }]}>
+                      Simular Depósito Nu ($1,200.00)
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.notificationSimButton,
+                      styles.notificationSimButtonGray,
+                      isSimulatingNotification && { opacity: 0.6 },
+                    ]}
+                    disabled={isSimulatingNotification}
+                    onPress={async () => {
+                      setIsSimulatingNotification(true);
+                      try {
+                        const res = await simulateNotification({
+                          packageName: 'com.bbva.bancomer',
+                          title: 'BBVA Seguridad',
+                          text: 'Tu código de seguridad OTP para ingresar es 492102. No lo compartas con nadie.',
+                        });
+                        Alert.alert(
+                          'Filtro de Privacidad Exitoso',
+                          `Estado: ${res.status}\nRazón: ${res.message}\nNo se generó candidato para proteger tu privacidad.`,
+                        );
+                      } catch (err: unknown) {
+                        const message = err instanceof Error ? err.message : 'Error al procesar la simulación';
+                        Alert.alert('Error', message);
+                      } finally {
+                        setIsSimulatingNotification(false);
+                      }
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons
+                      name="shield-outline"
+                      size={14}
+                      color="#64748b"
+                      style={{ marginRight: 6 }}
+                    />
+                    <Text style={[styles.notificationSimButtonText, { color: '#94a3b8' }]}>
+                      Simular Código OTP (Descarte)
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -1443,6 +1573,93 @@ const styles = StyleSheet.create({
     color: '#6366f1',
     fontSize: 12,
     fontWeight: '700',
+  },
+  notificationSimButtonAlt: {
+    backgroundColor: '#a855f715',
+    borderColor: '#a855f744',
+  },
+  notificationSimButtonGray: {
+    backgroundColor: '#33415522',
+    borderColor: '#334155',
+  },
+  // Candidate card styles (US-021 / US-023)
+  candidateCard: {
+    backgroundColor: '#0f172a',
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#a855f744',
+    gap: 8,
+  },
+  candidateHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  candidateHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  candidateTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#a855f7',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  candidateConfidenceBadge: {
+    backgroundColor: '#a855f722',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  candidateConfidenceText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#c084fc',
+  },
+  candidateDetailsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  candidateMerchant: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#f8fafc',
+  },
+  candidateProvider: {
+    fontSize: 11,
+    color: '#94a3b8',
+    marginTop: 2,
+  },
+  candidateAmount: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  candidateAmountExpense: {
+    color: '#ef4444',
+  },
+  candidateAmountIncome: {
+    color: '#10b981',
+  },
+  candidateStatusBadge: {
+    backgroundColor: '#334155',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginTop: 2,
+  },
+  candidateStatusText: {
+    fontSize: 9,
+    fontWeight: '600',
+    color: '#94a3b8',
+  },
+  candidateDisclaimer: {
+    fontSize: 10,
+    color: '#64748b',
+    fontStyle: 'italic',
   },
 });
 
