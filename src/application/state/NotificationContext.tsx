@@ -1,19 +1,23 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { Platform } from 'react-native';
 import { AndroidNotificationListenerModule } from '../../infrastructure/native/AndroidNotificationListenerModule';
-import { NotificationIngestionService } from '../services/NotificationIngestionService';
+import { NotificationIngestionPipeline, type PipelineExecutionResult } from '../services/NotificationIngestionPipeline';
 import { RawEventService } from '../../domain/services/RawEventService';
 import { SupabaseRawEventRepository } from '../../infrastructure/database/SupabaseRawEventRepository';
+import { InMemoryTransactionCandidateRepository } from '../../infrastructure/database/InMemoryTransactionCandidateRepository';
 import type { RawEvent } from '../../domain/models/RawEvent';
+import type { TransactionCandidate } from '../../domain/models/TransactionCandidate';
 
 interface NotificationContextValue {
   isSupported: boolean;
   isPermissionGranted: boolean;
   isListening: boolean;
   lastCapturedEvent: RawEvent | null;
+  lastCandidate: TransactionCandidate | null;
+  candidates: TransactionCandidate[];
   checkPermission: () => Promise<boolean>;
   requestPermission: () => Promise<void>;
-  simulateNotification: (sample?: { title?: string; text?: string; packageName?: string }) => Promise<void>;
+  simulateNotification: (sample?: { title?: string; text?: string; packageName?: string }) => Promise<PipelineExecutionResult>;
 }
 
 const NotificationContext = createContext<NotificationContextValue | null>(null);
@@ -23,15 +27,19 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [isPermissionGranted, setIsPermissionGranted] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [lastCapturedEvent, setLastCapturedEvent] = useState<RawEvent | null>(null);
+  const [lastCandidate, setLastCandidate] = useState<TransactionCandidate | null>(null);
+  const [candidates, setCandidates] = useState<TransactionCandidate[]>([]);
+
+  const candidateRepository = useMemo(() => new InMemoryTransactionCandidateRepository(), []);
 
   const rawEventService = useMemo(() => {
     const repository = new SupabaseRawEventRepository();
     return new RawEventService(repository);
   }, []);
 
-  const ingestionService = useMemo(() => {
-    return new NotificationIngestionService(rawEventService);
-  }, [rawEventService]);
+  const pipeline = useMemo(() => {
+    return new NotificationIngestionPipeline(rawEventService, candidateRepository);
+  }, [rawEventService, candidateRepository]);
 
   const checkPermission = useCallback(async (): Promise<boolean> => {
     if (!isSupported) return false;
@@ -50,9 +58,15 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     title?: string;
     text?: string;
     packageName?: string;
-  }): Promise<void> => {
+  }): Promise<PipelineExecutionResult> => {
     const simulated = AndroidNotificationListenerModule.simulate(sample);
-    await ingestionService.processIncomingNotification(simulated);
+    const result = await pipeline.processNotification(simulated);
+    setLastCapturedEvent(result.rawEvent);
+    if (result.candidate) {
+      setLastCandidate(result.candidate);
+      setCandidates((prev) => [result.candidate!, ...prev.filter((c) => c.id !== result.candidate!.id)]);
+    }
+    return result;
   };
 
   useEffect(() => {
@@ -67,21 +81,35 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       }
     });
 
-    ingestionService.start();
+    const unsubscribeNative = AndroidNotificationListenerModule.addListener(async (notif) => {
+      try {
+        const result = await pipeline.processNotification(notif);
+        if (isMounted) {
+          setLastCapturedEvent(result.rawEvent);
+          if (result.candidate) {
+            setLastCandidate(result.candidate);
+            setCandidates((prev) => [result.candidate!, ...prev.filter((c) => c.id !== result.candidate!.id)]);
+          }
+        }
+      } catch (err) {
+        console.error('[NotificationContext] Error procesando notificación nativa:', err);
+      }
+    });
 
-    const unsubscribe = ingestionService.onEventCaptured((event) => {
+    const unsubscribePipeline = pipeline.onCandidateGenerated((candidate) => {
       if (isMounted) {
-        setLastCapturedEvent(event);
+        setLastCandidate(candidate);
+        setCandidates((prev) => [candidate, ...prev.filter((c) => c.id !== candidate.id)]);
       }
     });
 
     return () => {
       isMounted = false;
-      unsubscribe();
-      ingestionService.stop();
+      unsubscribeNative();
+      unsubscribePipeline();
       setIsListening(false);
     };
-  }, [ingestionService, isSupported]);
+  }, [pipeline, isSupported]);
 
   return (
     <NotificationContext.Provider
@@ -90,6 +118,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         isPermissionGranted,
         isListening,
         lastCapturedEvent,
+        lastCandidate,
+        candidates,
         checkPermission,
         requestPermission,
         simulateNotification,

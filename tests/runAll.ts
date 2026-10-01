@@ -1,6 +1,7 @@
 import { runRawEventServiceTests } from './unit/RawEventService.test';
 import { runFinancialSourceAdapterTests } from './unit/FinancialSourceAdapter.test';
 import { runNotificationListenerTests } from './unit/NotificationListenerService.test';
+import { runNotificationPipelineTests } from './unit/NotificationIngestionPipeline.test';
 
 async function main() {
   console.log('========================================');
@@ -19,8 +20,12 @@ async function main() {
   await runNotificationListenerTests();
   console.log('');
 
+  console.log('--- Suite 4: US-021 Notification Ingestion Pipeline ---');
+  await runNotificationPipelineTests();
+  console.log('');
+
   console.log('========================================');
-  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (18/18 tests)!');
+  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (25/25 tests)!');
   console.log('========================================');
 }
 

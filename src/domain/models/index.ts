@@ -19,3 +19,18 @@ export type {
   UpdateTransactionInput,
 } from './Transaction';
 export { toDecimal, toMinorUnits } from './Transaction';
+// US-018 — Modelo de eventos crudos
+export type {
+  RawEvent,
+  RawEventSource,
+  RawEventStatus,
+  CreateRawEventDTO,
+  UpdateRawEventStatusDTO,
+} from './RawEvent';
+// US-021 / US-023 — Modelo de candidatos de transacción
+export type {
+  TransactionCandidate,
+  CandidateStatus,
+  AccountHint,
+  CreateCandidateDTO,
+} from './TransactionCandidate';
