@@ -743,6 +743,44 @@ export function HomeScreen({ onNavigateTab }: HomeScreenProps) {
                   <TouchableOpacity
                     style={[
                       styles.notificationSimButton,
+                      isSimulatingNotification && { opacity: 0.6 },
+                    ]}
+                    disabled={isSimulatingNotification}
+                    onPress={async () => {
+                      setIsSimulatingNotification(true);
+                      try {
+                        const res = await simulateNotification({
+                          packageName: 'com.bbva.bancomer',
+                          title: 'BBVA',
+                          text: 'Retiro sin tarjeta por $1,000.00 en Cajero BBVA el 28/09/2026',
+                        });
+                        Alert.alert(
+                          'Pipeline BBVA (Retiro Cajero)',
+                          `Estado: ${res.status}\nComercio: ${res.candidate?.merchant || 'N/A'}\nMonto: -$${res.candidate?.amount.toFixed(2) || '0.00'} MXN\nFecha Extraída: ${res.candidate?.occurredAt.toLocaleDateString() || 'N/A'}`,
+                        );
+                      } catch (err: unknown) {
+                        const message = err instanceof Error ? err.message : 'Error al procesar la simulación';
+                        Alert.alert('Error', message);
+                      } finally {
+                        setIsSimulatingNotification(false);
+                      }
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons
+                      name="cash-outline"
+                      size={14}
+                      color="#6366f1"
+                      style={{ marginRight: 6 }}
+                    />
+                    <Text style={styles.notificationSimButtonText}>
+                      {isSimulatingNotification ? 'Procesando...' : 'Simular Retiro BBVA ($1,000.00)'}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.notificationSimButton,
                       styles.notificationSimButtonAlt,
                       isSimulatingNotification && { opacity: 0.6 },
                     ]}

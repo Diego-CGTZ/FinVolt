@@ -18,6 +18,7 @@ export interface ParsedCandidateResult {
   accountHint?: AccountHint;
   confidence: number;
   parserName: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface INotificationParser {
