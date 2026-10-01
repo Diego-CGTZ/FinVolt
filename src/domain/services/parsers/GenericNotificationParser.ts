@@ -82,10 +82,10 @@ export class GenericNotificationParser implements INotificationParser {
     let merchant: string | null = null;
 
     if (type === 'INCOME') {
-      const match = text.match(/(?:de|desde)\s+([A-Za-z0-9\s._-]+?)(?:\s+concepto|\s+el|\s+por|\s*\.|$)/i);
+      const match = text.match(/(?:de|desde)\s+([A-Za-z0-9áéíóúÁÉÍÓÚñÑüÜ\s._&'’"-]+?)(?:\s+concepto|\s+el|\s+por|\s*\.|$)/i);
       if (match && match[1]) merchant = match[1].trim();
     } else {
-      const match = text.match(/(?:en)\s+([A-Za-z0-9\s._-]+?)(?:\s+con|\s+el|\s+por|\s+a\s+las|\s*\.|$)/i);
+      const match = text.match(/(?:en)\s+([A-Za-z0-9áéíóúÁÉÍÓÚñÑüÜ\s._&'’"-]+?)(?:\s+con|\s+el|\s+por|\s+a\s+las|\s*\.|$)/i);
       if (match && match[1]) merchant = match[1].trim();
     }
 

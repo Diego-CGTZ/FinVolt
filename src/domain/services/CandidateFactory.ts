@@ -40,6 +40,7 @@ export class CandidateFactory {
       metadata: {
         parserName: parsed.parserName,
         capturedAt: rawEvent.receivedAt.toISOString(),
+        ...(parsed.metadata || {}),
       },
       createdAt: now,
       updatedAt: now,

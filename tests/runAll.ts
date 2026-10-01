@@ -2,6 +2,7 @@ import { runRawEventServiceTests } from './unit/RawEventService.test';
 import { runFinancialSourceAdapterTests } from './unit/FinancialSourceAdapter.test';
 import { runNotificationListenerTests } from './unit/NotificationListenerService.test';
 import { runNotificationPipelineTests } from './unit/NotificationIngestionPipeline.test';
+import { runBBVAParserTests } from './unit/BBVANotificationParser.test';
 
 async function main() {
   console.log('========================================');
@@ -24,8 +25,12 @@ async function main() {
   await runNotificationPipelineTests();
   console.log('');
 
+  console.log('--- Suite 5: US-022 Parser BBVA ---');
+  await runBBVAParserTests();
+  console.log('');
+
   console.log('========================================');
-  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (25/25 tests)!');
+  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (33/33 tests)!');
   console.log('========================================');
 }
 
