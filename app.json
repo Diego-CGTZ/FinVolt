@@ -26,7 +26,8 @@
     },
     "plugins": [
       "expo-web-browser",
-      "./plugins/withAndroidNotificationListener"
+      "./plugins/withAndroidNotificationListener",
+      "expo-font"
     ]
   }
 }

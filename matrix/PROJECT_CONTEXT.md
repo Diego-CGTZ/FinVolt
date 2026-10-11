@@ -127,42 +127,47 @@ The system should optimize for **automation with controlled uncertainty**, not b
 
 ---
 
-## 7. Development Strategy
+## 7. Development Strategy & Story Workflow
 
-Development must be incremental and story-driven.
+Development must be strictly incremental and story-driven.
 
-The GitHub Project is the source of truth for implementation status.
+The GitHub Project is the source of truth for implementation status. Work on **exactly one User Story at a time**.
 
-Work on **exactly one User Story at a time**.
+### Flujo Obligatorio por Historia de Usuario
 
-For every User Story:
+Para cada nueva historia a desarrollar, es obligatorio cumplir el siguiente ciclo secuencial sin excepciones:
 
-`To Do → In Progress → In Review → Done`
+```
+[1. Crear Rama] ➔ [2. Desarrollar Historia] ➔ [3. Análisis de Calidad & Pruebas] ➔ [4. Aprobación & Merge a main] ➔ [5. Siguiente Historia]
+```
 
-Create one branch per story:
+1. **Creación de Rama de la Historia (Branching):**
+   - Antes de escribir cualquier línea de código, crear una rama dedicada a partir de `main` actualizado:
+     `feature/US-XXX-short-description` (ej. vía `.\scripts\start-story.ps1 -StoryId US-XXX`).
+   - **Nunca** desarrollar ni commitear funcionalidades directamente en `main`.
 
-`feature/US-XXX-short-description`
+2. **Desarrollo Focalizado:**
+   - Implementar exclusivamente lo correspondiente a la historia activa y sus Criterios de Aceptación (AC).
+   - No implementar historias futuras prematuramente ni añadir código no relacionado.
+   - Respetar las reglas de Clean Architecture y las invariantes de dominio financiero.
 
-The branch must be created from the latest `main`.
+3. **Proceso Obligatorio de Análisis de Calidad:**
+   Al terminar la implementación de la historia, el código debe someterse y aprobar una compuerta estricta de calidad (*Quality Gate*) que verifique:
+   - **Pruebas de la Implementación:** Añadir y ejecutar tests unitarios/integración específicos para la nueva funcionalidad.
+   - **Pruebas de Regresión:** Ejecución de la suite completa (`npm test` o `runAll.ts`) asegurando que todas las suites pasen al 100% sin romper funcionalidades previas.
+   - **Verificación de Criterios de Aceptación (AC):** Comprobar punto por punto que se cumple todo lo estipulado en la historia del issue/backlog.
+   - **Tipado Estricto (Typecheck):** `npx tsc --noEmit` debe ejecutarse con 0 errores.
+   - **Estándar de Código (Lint):** `npx expo lint` debe completarse sin errores.
+   - **Reglas de UI & Dominio:** Cero emojis en la interfaz visual, uso de íconos vectoriales (`@expo/vector-icons`), y preservación estricta de la inmutabilidad de datos y aislamiento con la tabla `transactions`.
 
-A story must contain clear acceptance criteria and must be independently testable.
+4. **Aprobación y Merge con `main`:**
+   - Una vez que el análisis de calidad certifica que los tests pasan y los criterios de aceptación están 100% cubiertos, se genera el PR / revisión (`finish-story.ps1`).
+   - Tras la aprobación y verificación satisfactoria, se ejecuta el merge a `main` (`merge-story.ps1` o squash merge).
 
-Do not implement future stories prematurely or add unrelated functionality.
+5. **Paso a la Siguiente Historia:**
+   - Solo después de que la historia está formalmente aprobada y mergeada en `main`, y con el branch local sincronizado (`git pull origin main`), se puede dar por cerrada y avanzar con la siguiente integración del backlog.
 
-Before a story can be considered complete:
-
-- Implementation finished
-- Tests added/updated
-- Lint passes
-- Typecheck passes
-- Build passes
-- Architecture rules respected
-- Code reviewed
-- Branch merged into `main`
-
-Only after the story is merged into `main` may development of the next story begin.
-
-`main` must always represent the latest stable state of the product.
+`main` debe representar siempre el estado más reciente, estable y verificado del producto.
 
 ---
 
