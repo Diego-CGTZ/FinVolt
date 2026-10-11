@@ -10,3 +10,8 @@ export { SupabaseAccountRepository } from './SupabaseAccountRepository';
 export { SupabaseCategoryRepository } from './SupabaseCategoryRepository';
 // US-008
 export { SupabaseTransactionRepository } from './SupabaseTransactionRepository';
+// US-018
+export { SupabaseRawEventRepository } from './SupabaseRawEventRepository';
+// US-021 / US-023
+export { InMemoryTransactionCandidateRepository } from './InMemoryTransactionCandidateRepository';
+export { SupabaseTransactionCandidateRepository } from './SupabaseTransactionCandidateRepository';

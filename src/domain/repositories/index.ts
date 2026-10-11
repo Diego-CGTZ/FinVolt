@@ -18,3 +18,13 @@ export type {
   TransactionFilters,
   PaginationOptions,
 } from './ITransactionRepository';
+// US-018 — Repositorio de raw events
+export type {
+  IRawEventRepository,
+  RawEventFilter,
+} from './IRawEventRepository';
+// US-023 — Repositorio de transaction candidates
+export type {
+  ITransactionCandidateRepository,
+  CandidateFilter,
+} from './ITransactionCandidateRepository';

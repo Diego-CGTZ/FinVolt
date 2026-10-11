@@ -3,6 +3,7 @@ import { runFinancialSourceAdapterTests } from './unit/FinancialSourceAdapter.te
 import { runNotificationListenerTests } from './unit/NotificationListenerService.test';
 import { runNotificationPipelineTests } from './unit/NotificationIngestionPipeline.test';
 import { runBBVAParserTests } from './unit/BBVANotificationParser.test';
+import { runTransactionCandidateServiceTests } from './unit/TransactionCandidateService.test';
 
 async function main() {
   console.log('========================================');
@@ -29,8 +30,12 @@ async function main() {
   await runBBVAParserTests();
   console.log('');
 
+  console.log('--- Suite 6: US-023 Transaction Candidate ---');
+  await runTransactionCandidateServiceTests();
+  console.log('');
+
   console.log('========================================');
-  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (33/33 tests)!');
+  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (40/40 tests)!');
   console.log('========================================');
 }
 

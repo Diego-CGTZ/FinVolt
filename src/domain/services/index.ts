@@ -8,3 +8,6 @@
  * IEmailAdapter — added in US-019, US-021, US-033, etc.
  */
 export * from './BalanceCalculatorService';
+export * from './RawEventService';
+export * from './TransactionCandidateService';
+export * from './CandidateFactory';
