@@ -36,6 +36,9 @@ export class InMemoryTransactionCandidateRepository implements ITransactionCandi
   public async findAll(filter?: CandidateFilter): Promise<TransactionCandidate[]> {
     let result = Array.from(this.candidates.values());
 
+    if (filter?.userId) {
+      result = result.filter((c) => c.userId === filter.userId);
+    }
     if (filter?.status) {
       result = result.filter((c) => c.status === filter.status);
     }
@@ -44,14 +47,39 @@ export class InMemoryTransactionCandidateRepository implements ITransactionCandi
         (c) => c.provider.toUpperCase() === filter.provider?.toUpperCase(),
       );
     }
+    if (filter?.source) {
+      result = result.filter((c) => c.source === filter.source);
+    }
+    if (filter?.minConfidence !== undefined) {
+      result = result.filter((c) => c.confidenceScore >= (filter.minConfidence ?? 0));
+    }
+    if (filter?.fromDate) {
+      result = result.filter((c) => c.occurredAt.getTime() >= filter.fromDate!.getTime());
+    }
+    if (filter?.toDate) {
+      result = result.filter((c) => c.occurredAt.getTime() <= filter.toDate!.getTime());
+    }
 
-    result.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    result.sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime());
+
+    if (filter?.offset && filter.offset > 0) {
+      result = result.slice(filter.offset);
+    }
 
     if (filter?.limit && filter.limit > 0) {
       result = result.slice(0, filter.limit);
     }
 
     return result.map((c) => ({ ...c }));
+  }
+
+  public async count(filter?: CandidateFilter): Promise<number> {
+    const list = await this.findAll({
+      ...filter,
+      limit: undefined,
+      offset: undefined,
+    });
+    return list.length;
   }
 
   public async updateStatus(id: string, status: CandidateStatus): Promise<TransactionCandidate> {
@@ -66,6 +94,10 @@ export class InMemoryTransactionCandidateRepository implements ITransactionCandi
     };
     this.candidates.set(id, updated);
     return { ...updated };
+  }
+
+  public async delete(id: string): Promise<void> {
+    this.candidates.delete(id);
   }
 
   public clear(): void {
