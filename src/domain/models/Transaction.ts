@@ -161,6 +161,7 @@ export interface CreateTransactionInput {
   fingerprint?: string;
   linkedTransactionId?: string;
   sourcesEvidence?: SourceEvidence[];
+  metadata?: Record<string, unknown>;
 }
 
 /** Campos actualizables por el usuario en una transacción existente. */
@@ -180,6 +181,7 @@ export interface UpdateTransactionInput {
   fingerprint?: string | null;
   linkedTransactionId?: string | null;
   sourcesEvidence?: SourceEvidence[];
+  metadata?: Record<string, unknown>;
 }
 
 // ── Utilidades de dominio ──────────────────────────────────────────────────────

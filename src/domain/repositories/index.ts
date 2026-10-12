@@ -27,3 +27,5 @@ export type {
 } from './ITransactionCandidateRepository';
 // US-024 — Repositorio de reglas de normalización de comercios
 export type { IMerchantRuleRepository, MerchantRuleFilter } from './IMerchantRuleRepository';
+// US-032 — Repositorio de correcciones de usuario
+export type { IUserCorrectionRepository } from './IUserCorrectionRepository';
