@@ -24,7 +24,8 @@ export type RawEventStatus =
   | 'PENDING'    // Capturado, en cola para parseo
   | 'PROCESSED'  // Procesado satisfactoriamente
   | 'FAILED'     // Fallo durante el parseo o extracción
-  | 'IGNORED';   // Descartado por no ser financiero o no relevante
+  | 'IGNORED'    // Descartado por no ser financiero o no relevante
+  | 'DUPLICATE'; // Descartado/marcado por duplicidad de evento ya existente
 
 export interface RawEvent<
   TPayload extends Record<string, unknown> = Record<string, unknown>,
