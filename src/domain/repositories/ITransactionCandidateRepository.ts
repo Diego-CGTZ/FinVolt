@@ -13,6 +13,7 @@ export interface CandidateFilter {
   minConfidence?: number;
   fromDate?: Date;
   toDate?: Date;
+  fingerprint?: string;
   limit?: number;
   offset?: number;
 }
@@ -32,6 +33,11 @@ export interface ITransactionCandidateRepository {
    * Obtiene el candidato asociado a un RawEvent específico.
    */
   findByRawEventId(rawEventId: string): Promise<TransactionCandidate | null>;
+
+  /**
+   * Obtiene un candidato por su huella determinística (US-025).
+   */
+  findByFingerprint(fingerprint: string): Promise<TransactionCandidate | null>;
 
   /**
    * Lista candidatos según filtros opcionales.
