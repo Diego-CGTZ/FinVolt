@@ -7,4 +7,6 @@
  *
  * Barrel exports are added here as each sub-module exposes real implementations.
  */
-export {};
+export * from './adapters';
+export * from './database';
+export * from './services';

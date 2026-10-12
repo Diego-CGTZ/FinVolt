@@ -10,6 +10,7 @@ export * from './EmailFinancialAdapter';
 export * from './PdfStatementAdapter';
 export * from './CsvStatementAdapter';
 export * from './XlsxStatementAdapter';
+export * from './GmailFinancialAdapter';
 
 /**
  * Crea e inicializa el registro con todos los adaptadores de fuentes financieras soportados (US-019).

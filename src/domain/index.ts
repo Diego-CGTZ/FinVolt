@@ -8,5 +8,6 @@
  */
 export * from './models/RawEvent';
 export * from './interfaces/FinancialSourceAdapter';
+export * from './interfaces/IGmailClient';
 export * from './services/FinancialSourceAdapterRegistry';
 export * from './services/RawEventService';
