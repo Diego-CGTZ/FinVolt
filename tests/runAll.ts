@@ -5,6 +5,7 @@ import { runNotificationPipelineTests } from './unit/NotificationIngestionPipeli
 import { runBBVAParserTests } from './unit/BBVANotificationParser.test';
 import { runTransactionCandidateServiceTests } from './unit/TransactionCandidateService.test';
 import { runMerchantNormalizerTests } from './unit/MerchantNormalizer.test';
+import { runTransactionFingerprintTests } from './unit/TransactionFingerprint.test';
 
 async function main() {
   console.log('========================================');
@@ -39,8 +40,12 @@ async function main() {
   await runMerchantNormalizerTests();
   console.log('');
 
+  console.log('--- Suite 8: US-025 Transaction Fingerprint ---');
+  await runTransactionFingerprintTests();
+  console.log('');
+
   console.log('========================================');
-  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (51/51 tests)!');
+  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (61/61 tests)!');
   console.log('========================================');
 }
 

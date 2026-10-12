@@ -23,6 +23,7 @@ interface DatabaseCandidateRow {
   confidence_score: number;
   account_hint: Record<string, unknown> | null;
   status: CandidateStatus;
+  fingerprint?: string | null;
   raw_payload: Record<string, unknown> | null;
   metadata: Record<string, unknown> | null;
   created_at: string;
@@ -49,6 +50,7 @@ export class SupabaseTransactionCandidateRepository implements ITransactionCandi
       confidence_score: candidate.confidenceScore,
       account_hint: candidate.accountHint || {},
       status: candidate.status,
+      fingerprint: candidate.fingerprint ?? null,
       raw_payload: candidate.rawPayload || {},
       metadata: candidate.metadata || {},
     };
@@ -96,6 +98,22 @@ export class SupabaseTransactionCandidateRepository implements ITransactionCandi
     return data ? this.mapToDomain(data as DatabaseCandidateRow) : null;
   }
 
+  async findByFingerprint(fingerprint: string): Promise<TransactionCandidate | null> {
+    const { data, error } = await supabase
+      .from('transaction_candidates')
+      .select('*')
+      .eq('fingerprint', fingerprint)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(`Error al consultar TransactionCandidate por fingerprint: ${error.message}`);
+    }
+
+    return data ? this.mapToDomain(data as DatabaseCandidateRow) : null;
+  }
+
   async findAll(filter?: CandidateFilter): Promise<TransactionCandidate[]> {
     let query = supabase
       .from('transaction_candidates')
@@ -107,6 +125,9 @@ export class SupabaseTransactionCandidateRepository implements ITransactionCandi
     }
     if (filter?.status) {
       query = query.eq('status', filter.status);
+    }
+    if (filter?.fingerprint) {
+      query = query.eq('fingerprint', filter.fingerprint);
     }
     if (filter?.provider) {
       query = query.ilike('provider', filter.provider);
@@ -211,6 +232,7 @@ export class SupabaseTransactionCandidateRepository implements ITransactionCandi
       confidenceScore: row.confidence_score,
       accountHint: row.account_hint ? (row.account_hint as TransactionCandidate['accountHint']) : undefined,
       status: row.status,
+      fingerprint: row.fingerprint ?? null,
       rawPayload: row.raw_payload || {},
       metadata: row.metadata || {},
       createdAt: new Date(row.created_at),
