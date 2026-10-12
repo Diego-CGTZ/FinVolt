@@ -15,3 +15,6 @@ export { SupabaseRawEventRepository } from './SupabaseRawEventRepository';
 // US-021 / US-023
 export { InMemoryTransactionCandidateRepository } from './InMemoryTransactionCandidateRepository';
 export { SupabaseTransactionCandidateRepository } from './SupabaseTransactionCandidateRepository';
+// US-024
+export { InMemoryMerchantRuleRepository } from './InMemoryMerchantRuleRepository';
+export { SupabaseMerchantRuleRepository } from './SupabaseMerchantRuleRepository';

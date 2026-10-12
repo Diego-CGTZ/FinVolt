@@ -34,3 +34,10 @@ export type {
   AccountHint,
   CreateCandidateDTO,
 } from './TransactionCandidate';
+// US-024 — Modelo de normalización de comercios
+export type {
+  MerchantRule,
+  MerchantPatternType,
+  NormalizedMerchantResult,
+  CreateMerchantRuleDTO,
+} from './MerchantRule';

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -43,11 +43,10 @@ export function HomeScreen({ onNavigateTab }: HomeScreenProps) {
   const {
     isPermissionGranted: isNotificationGranted,
     requestPermission: requestNotificationPermission,
-    simulateNotification,
     lastCapturedEvent,
     lastCandidate,
   } = useNotificationIngestion();
-  const [isSimulatingNotification, setIsSimulatingNotification] = useState(false);
+
 
   const aggregates = useMemo(
     () => calculateAggregateBalances(accounts, transactions),
@@ -684,8 +683,8 @@ export function HomeScreen({ onNavigateTab }: HomeScreenProps) {
                   </View>
                 )}
 
-                <View style={styles.notificationActionsRow}>
-                  {!isNotificationGranted && (
+                {!isNotificationGranted && (
+                  <View style={styles.notificationActionsRow}>
                     <TouchableOpacity
                       style={styles.notificationPermButton}
                       onPress={async () => {
@@ -700,162 +699,8 @@ export function HomeScreen({ onNavigateTab }: HomeScreenProps) {
                       <Ionicons name="settings-outline" size={14} color="#ffffff" style={{ marginRight: 6 }} />
                       <Text style={styles.notificationPermButtonText}>Habilitar en Ajustes</Text>
                     </TouchableOpacity>
-                  )}
-
-                  <TouchableOpacity
-                    style={[
-                      styles.notificationSimButton,
-                      isSimulatingNotification && { opacity: 0.6 },
-                    ]}
-                    disabled={isSimulatingNotification}
-                    onPress={async () => {
-                      setIsSimulatingNotification(true);
-                      try {
-                        const res = await simulateNotification({
-                          packageName: 'com.bbva.bancomer',
-                          title: 'BBVA México',
-                          text: 'Compra con tarjeta por $349.00 en Mercado Pago',
-                        });
-                        Alert.alert(
-                          'Pipeline Completado (BBVA)',
-                          `Estado: ${res.status}\nProveedor: ${res.provider.displayName}\nMonto: $${res.candidate?.amount.toFixed(2) || '0.00'}\nComercio: ${res.candidate?.merchant || 'N/A'}`,
-                        );
-                      } catch (err: unknown) {
-                        const message = err instanceof Error ? err.message : 'Error al procesar la simulación';
-                        Alert.alert('Error', message);
-                      } finally {
-                        setIsSimulatingNotification(false);
-                      }
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons
-                      name="flask-outline"
-                      size={14}
-                      color="#6366f1"
-                      style={{ marginRight: 6 }}
-                    />
-                    <Text style={styles.notificationSimButtonText}>
-                      {isSimulatingNotification ? 'Procesando...' : 'Simular Compra BBVA ($349.00)'}
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.notificationSimButton,
-                      isSimulatingNotification && { opacity: 0.6 },
-                    ]}
-                    disabled={isSimulatingNotification}
-                    onPress={async () => {
-                      setIsSimulatingNotification(true);
-                      try {
-                        const res = await simulateNotification({
-                          packageName: 'com.bbva.bancomer',
-                          title: 'BBVA',
-                          text: 'Retiro sin tarjeta por $1,000.00 en Cajero BBVA el 28/09/2026',
-                        });
-                        Alert.alert(
-                          'Pipeline BBVA (Retiro Cajero)',
-                          `Estado: ${res.status}\nComercio: ${res.candidate?.merchant || 'N/A'}\nMonto: -$${res.candidate?.amount.toFixed(2) || '0.00'} MXN\nFecha Extraída: ${res.candidate?.occurredAt.toLocaleDateString() || 'N/A'}`,
-                        );
-                      } catch (err: unknown) {
-                        const message = err instanceof Error ? err.message : 'Error al procesar la simulación';
-                        Alert.alert('Error', message);
-                      } finally {
-                        setIsSimulatingNotification(false);
-                      }
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons
-                      name="cash-outline"
-                      size={14}
-                      color="#6366f1"
-                      style={{ marginRight: 6 }}
-                    />
-                    <Text style={styles.notificationSimButtonText}>
-                      {isSimulatingNotification ? 'Procesando...' : 'Simular Retiro BBVA ($1,000.00)'}
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.notificationSimButton,
-                      styles.notificationSimButtonAlt,
-                      isSimulatingNotification && { opacity: 0.6 },
-                    ]}
-                    disabled={isSimulatingNotification}
-                    onPress={async () => {
-                      setIsSimulatingNotification(true);
-                      try {
-                        const res = await simulateNotification({
-                          packageName: 'mx.nu.app',
-                          title: 'Cuenta Nu',
-                          text: 'Transferencia recibida por $1,200.00 de Pedro Páramo concepto Pago freelance',
-                        });
-                        Alert.alert(
-                          'Pipeline Completado (Nu)',
-                          `Estado: ${res.status}\nProveedor: ${res.provider.displayName}\nTipo: ${res.candidate?.type || 'N/A'}\nMonto: +$${res.candidate?.amount.toFixed(2) || '0.00'}`,
-                        );
-                      } catch (err: unknown) {
-                        const message = err instanceof Error ? err.message : 'Error al procesar la simulación';
-                        Alert.alert('Error', message);
-                      } finally {
-                        setIsSimulatingNotification(false);
-                      }
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons
-                      name="arrow-down-circle-outline"
-                      size={14}
-                      color="#a855f7"
-                      style={{ marginRight: 6 }}
-                    />
-                    <Text style={[styles.notificationSimButtonText, { color: '#a855f7' }]}>
-                      Simular Depósito Nu ($1,200.00)
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.notificationSimButton,
-                      styles.notificationSimButtonGray,
-                      isSimulatingNotification && { opacity: 0.6 },
-                    ]}
-                    disabled={isSimulatingNotification}
-                    onPress={async () => {
-                      setIsSimulatingNotification(true);
-                      try {
-                        const res = await simulateNotification({
-                          packageName: 'com.bbva.bancomer',
-                          title: 'BBVA Seguridad',
-                          text: 'Tu código de seguridad OTP para ingresar es 492102. No lo compartas con nadie.',
-                        });
-                        Alert.alert(
-                          'Filtro de Privacidad Exitoso',
-                          `Estado: ${res.status}\nRazón: ${res.message}\nNo se generó candidato para proteger tu privacidad.`,
-                        );
-                      } catch (err: unknown) {
-                        const message = err instanceof Error ? err.message : 'Error al procesar la simulación';
-                        Alert.alert('Error', message);
-                      } finally {
-                        setIsSimulatingNotification(false);
-                      }
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons
-                      name="shield-outline"
-                      size={14}
-                      color="#64748b"
-                      style={{ marginRight: 6 }}
-                    />
-                    <Text style={[styles.notificationSimButtonText, { color: '#94a3b8' }]}>
-                      Simular Código OTP (Descarte)
-                    </Text>
-                  </TouchableOpacity>
-                </View>
+                  </View>
+                )}
               </View>
             </View>
 
