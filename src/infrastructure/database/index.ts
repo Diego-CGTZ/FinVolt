@@ -20,3 +20,5 @@ export { InMemoryMerchantRuleRepository } from './InMemoryMerchantRuleRepository
 export { SupabaseMerchantRuleRepository } from './SupabaseMerchantRuleRepository';
 // US-032
 export { InMemoryUserCorrectionRepository } from './InMemoryUserCorrectionRepository';
+// US-018 / US-033
+export { InMemoryRawEventRepository } from './InMemoryRawEventRepository';

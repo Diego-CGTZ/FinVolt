@@ -13,6 +13,7 @@ import { runConfidenceScoreTests } from './unit/ConfidenceScore.test';
 import { runConfidenceThresholdsTests } from './unit/ConfidenceThresholds.test';
 import { runDeterministicCategorizationTests } from './unit/DeterministicCategorization.test';
 import { runUserCorrectionServiceTests } from './unit/UserCorrectionService.test';
+import { runGmailAdapterTests } from './unit/GmailAdapter.test';
 
 async function main() {
   console.log('========================================');
@@ -79,8 +80,12 @@ async function main() {
   await runUserCorrectionServiceTests();
   console.log('');
 
+  console.log('--- Suite 16: US-033 Gmail Adapter ---');
+  await runGmailAdapterTests();
+  console.log('');
+
   console.log('========================================');
-  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (135/135 tests)!');
+  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (147/147 tests)!');
   console.log('========================================');
 }
 

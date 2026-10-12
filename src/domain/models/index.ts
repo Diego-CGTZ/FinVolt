@@ -43,3 +43,5 @@ export type {
 } from './MerchantRule';
 // US-032 — Modelo de correcciones de usuario y reglas reutilizables
 export * from './UserCorrection';
+// US-033 — Modelo de integración y sincronización de Gmail
+export * from './Gmail';
