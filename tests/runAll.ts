@@ -11,6 +11,7 @@ import { runCrossSourceReconciliationTests } from './unit/CrossSourceReconciliat
 import { runFinancialStateMachineTests } from './unit/FinancialStateMachine.test';
 import { runConfidenceScoreTests } from './unit/ConfidenceScore.test';
 import { runConfidenceThresholdsTests } from './unit/ConfidenceThresholds.test';
+import { runDeterministicCategorizationTests } from './unit/DeterministicCategorization.test';
 
 async function main() {
   console.log('========================================');
@@ -69,8 +70,12 @@ async function main() {
   await runConfidenceThresholdsTests();
   console.log('');
 
+  console.log('--- Suite 14: US-031 Deterministic Categorization ---');
+  await runDeterministicCategorizationTests();
+  console.log('');
+
   console.log('========================================');
-  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (113/113 tests)!');
+  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (125/125 tests)!');
   console.log('========================================');
 }
 
