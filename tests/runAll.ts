@@ -8,6 +8,7 @@ import { runMerchantNormalizerTests } from './unit/MerchantNormalizer.test';
 import { runTransactionFingerprintTests } from './unit/TransactionFingerprint.test';
 import { runDuplicateDetectorTests } from './unit/DuplicateDetector.test';
 import { runCrossSourceReconciliationTests } from './unit/CrossSourceReconciliation.test';
+import { runFinancialStateMachineTests } from './unit/FinancialStateMachine.test';
 
 async function main() {
   console.log('========================================');
@@ -54,8 +55,12 @@ async function main() {
   await runCrossSourceReconciliationTests();
   console.log('');
 
+  console.log('--- Suite 11: US-028 Financial State Machine ---');
+  await runFinancialStateMachineTests();
+  console.log('');
+
   console.log('========================================');
-  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (81/81 tests)!');
+  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (91/91 tests)!');
   console.log('========================================');
 }
 

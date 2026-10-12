@@ -15,3 +15,4 @@ export * from './MerchantNormalizer';
 export * from './fingerprint';
 export * from './duplication';
 export * from './reconciliation';
+export * from './lifecycle';
