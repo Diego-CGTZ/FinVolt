@@ -4,6 +4,7 @@ import { runNotificationListenerTests } from './unit/NotificationListenerService
 import { runNotificationPipelineTests } from './unit/NotificationIngestionPipeline.test';
 import { runBBVAParserTests } from './unit/BBVANotificationParser.test';
 import { runTransactionCandidateServiceTests } from './unit/TransactionCandidateService.test';
+import { runMerchantNormalizerTests } from './unit/MerchantNormalizer.test';
 
 async function main() {
   console.log('========================================');
@@ -34,8 +35,12 @@ async function main() {
   await runTransactionCandidateServiceTests();
   console.log('');
 
+  console.log('--- Suite 7: US-024 Merchant Normalizer ---');
+  await runMerchantNormalizerTests();
+  console.log('');
+
   console.log('========================================');
-  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (40/40 tests)!');
+  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (51/51 tests)!');
   console.log('========================================');
 }
 

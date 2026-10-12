@@ -28,6 +28,11 @@
       "expo-web-browser",
       "./plugins/withAndroidNotificationListener",
       "expo-font"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "5c9e493c-89ae-4e71-9506-cf60cbd8530e"
+      }
+    }
   }
 }
