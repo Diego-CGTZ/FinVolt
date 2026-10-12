@@ -43,7 +43,8 @@ export type TransactionSource =
   | 'SMS'
   | 'STATEMENT_PDF'
   | 'STATEMENT_CSV'
-  | 'STATEMENT_XLSX';
+  | 'STATEMENT_XLSX'
+  | 'OCR';
 
 export interface Transaction {
   id: string;

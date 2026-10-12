@@ -16,3 +16,4 @@ export * from './fingerprint';
 export * from './duplication';
 export * from './reconciliation';
 export * from './lifecycle';
+export * from './confidence';

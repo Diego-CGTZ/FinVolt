@@ -18,7 +18,8 @@ export type RawEventSource =
   | 'BANK_PDF'
   | 'BANK_CSV'
   | 'BANK_XLSX'
-  | 'MANUAL_IMPORT';
+  | 'MANUAL_IMPORT'
+  | 'OCR';
 
 export type RawEventStatus =
   | 'PENDING'    // Capturado, en cola para parseo
