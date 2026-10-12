@@ -16,6 +16,11 @@ import type { RawEventSource } from '../../models/RawEvent';
 import type { Transaction, TransactionSource } from '../../models/Transaction';
 import type { TransactionCandidate, AccountHint } from '../../models/TransactionCandidate';
 import { MerchantNormalizer } from '../MerchantNormalizer';
+import {
+  ConfidenceThresholdService,
+  type ConfidenceThresholds,
+  type ConfidenceThresholdDecision,
+} from './ConfidenceThresholdService';
 
 export type ConfidenceSourceCategory =
   | 'STATEMENT'     // BANK_PDF, BANK_CSV, BANK_XLSX, STATEMENT_PDF, etc.
@@ -489,5 +494,19 @@ export class ConfidenceScoringService {
       sourcesCount: count,
       hasStatementSource: hasStatement,
     });
+  }
+
+  /**
+   * Determina automáticamente el dictamen de umbrales contables (US-030):
+   * - ≥90: AUTO_CONFIRM
+   * - 70-89: REGISTER_AND_REVIEW
+   * - <70: REQUIRE_USER
+   */
+  public static evaluateDecision(
+    inputOrScore: ConfidenceScoreInput | number,
+    thresholds?: Partial<ConfidenceThresholds>,
+  ): ConfidenceThresholdDecision {
+    const score = typeof inputOrScore === 'number' ? inputOrScore : this.calculate(inputOrScore);
+    return ConfidenceThresholdService.evaluate(score, thresholds);
   }
 }

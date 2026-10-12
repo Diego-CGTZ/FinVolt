@@ -10,6 +10,7 @@ import { runDuplicateDetectorTests } from './unit/DuplicateDetector.test';
 import { runCrossSourceReconciliationTests } from './unit/CrossSourceReconciliation.test';
 import { runFinancialStateMachineTests } from './unit/FinancialStateMachine.test';
 import { runConfidenceScoreTests } from './unit/ConfidenceScore.test';
+import { runConfidenceThresholdsTests } from './unit/ConfidenceThresholds.test';
 
 async function main() {
   console.log('========================================');
@@ -64,8 +65,12 @@ async function main() {
   await runConfidenceScoreTests();
   console.log('');
 
+  console.log('--- Suite 13: US-030 Confidence Thresholds ---');
+  await runConfidenceThresholdsTests();
+  console.log('');
+
   console.log('========================================');
-  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (101/101 tests)!');
+  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (113/113 tests)!');
   console.log('========================================');
 }
 

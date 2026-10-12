@@ -19,6 +19,11 @@ import type {
   CandidateFilter,
   ITransactionCandidateRepository,
 } from '../repositories/ITransactionCandidateRepository';
+import {
+  ConfidenceThresholdService,
+  type ConfidenceThresholds,
+  type ConfidenceThresholdDecision,
+} from './confidence/ConfidenceThresholdService';
 
 export interface CandidateValidationResult {
   isValid: boolean;
@@ -106,6 +111,7 @@ export class TransactionCandidateService {
 
   /**
    * Confirma automáticamente un candidato si cumple con reglas de alta confianza (>= 90).
+   * Soporta umbrales configurables (US-030).
    */
   public async autoConfirmIfEligible(
     candidateId: string,
@@ -116,11 +122,70 @@ export class TransactionCandidateService {
       throw new Error(`Candidato no encontrado: ${candidateId}`);
     }
 
-    if (candidate.confidenceScore >= minConfidenceThreshold && candidate.status === 'PENDING_REVIEW') {
-      return this.candidateRepository.updateStatus(candidateId, 'AUTO_CONFIRMED');
+    const decision = ConfidenceThresholdService.evaluateCandidate(candidate, {
+      autoConfirm: minConfidenceThreshold,
+    });
+
+    if (decision.isAutoConfirm && candidate.status === 'PENDING_REVIEW') {
+      const updated = await this.candidateRepository.updateStatus(candidateId, 'AUTO_CONFIRMED');
+      updated.metadata = {
+        ...(updated.metadata || {}),
+        confidenceAction: decision.action,
+        thresholdDecision: {
+          action: decision.action,
+          score: decision.score,
+          thresholds: decision.thresholds,
+          reason: decision.reason,
+          evaluatedAt: decision.evaluatedAt.toISOString(),
+        },
+      };
+      await this.candidateRepository.save(updated);
+      return updated;
     }
 
     return candidate;
+  }
+
+  /**
+   * Evalúa un candidato contra los umbrales de confianza sin mutar su estado (US-030).
+   */
+  public async evaluateThresholds(
+    candidateId: string,
+    customThresholds?: Partial<ConfidenceThresholds>,
+  ): Promise<{ candidate: TransactionCandidate; decision: ConfidenceThresholdDecision }> {
+    const candidate = await this.candidateRepository.findById(candidateId);
+    if (!candidate) {
+      throw new Error(`Candidato no encontrado: ${candidateId}`);
+    }
+
+    const decision = ConfidenceThresholdService.evaluateCandidate(candidate, customThresholds);
+    return { candidate, decision };
+  }
+
+  /**
+   * Procesa y aplica formalmente el dictamen de umbrales sobre el candidato (US-030):
+   * - AUTO_CONFIRM (≥90): Transiciona a AUTO_CONFIRMED.
+   * - REGISTER_AND_REVIEW (70-89): Permanece PENDING_REVIEW con flag requiresReview = true.
+   * - REQUIRE_USER (<70): Permanece PENDING_REVIEW con flag requiresUserApproval = true.
+   */
+  public async processThresholdDecision(
+    candidateId: string,
+    customThresholds?: Partial<ConfidenceThresholds>,
+  ): Promise<{ candidate: TransactionCandidate; decision: ConfidenceThresholdDecision }> {
+    const candidate = await this.candidateRepository.findById(candidateId);
+    if (!candidate) {
+      throw new Error(`Candidato no encontrado: ${candidateId}`);
+    }
+
+    const updated = ConfidenceThresholdService.applyToCandidate(candidate, customThresholds);
+    const decision = ConfidenceThresholdService.evaluateCandidate(candidate, customThresholds);
+
+    if (updated.status !== candidate.status) {
+      await this.candidateRepository.updateStatus(candidateId, updated.status);
+    }
+    const saved = await this.candidateRepository.save(updated);
+
+    return { candidate: saved, decision };
   }
 
   /**

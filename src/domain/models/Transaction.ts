@@ -114,6 +114,9 @@ export interface Transaction {
    */
   sourcesEvidence?: SourceEvidence[];
 
+  /** Metadatos contextuales y dictámenes de automatización (US-030) */
+  metadata?: Record<string, unknown>;
+
   createdAt: Date;
   updatedAt: Date;
 }
