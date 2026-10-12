@@ -8,6 +8,7 @@
 import type { RawEvent } from '../models/RawEvent';
 import type { ParsedCandidateResult } from './parsers/INotificationParser';
 import type { TransactionCandidate } from '../models/TransactionCandidate';
+import { TransactionFingerprintService } from './fingerprint/TransactionFingerprintService';
 
 export class CandidateFactory {
   public static create(
@@ -19,6 +20,16 @@ export class CandidateFactory {
     const id = this.generateId();
     const now = new Date();
     const amountMinor = Math.round(parsed.amount * 100);
+    const occurredAt = parsed.occurredAt || rawEvent.receivedAt || now;
+
+    const fingerprint = TransactionFingerprintService.calculate({
+      account: parsed.accountHint || 'unassigned',
+      amountMinor,
+      currency: parsed.currency || 'MXN',
+      date: occurredAt,
+      merchant: parsed.merchant || parsed.merchantRaw || '',
+      type: parsed.type,
+    });
 
     return {
       id,
@@ -32,9 +43,10 @@ export class CandidateFactory {
       type: parsed.type,
       merchantRaw: parsed.merchantRaw,
       merchant: parsed.merchant,
-      occurredAt: parsed.occurredAt || rawEvent.receivedAt || now,
+      occurredAt,
       confidenceScore: Math.min(100, Math.max(0, parsed.confidence)),
       accountHint: parsed.accountHint,
+      fingerprint,
       status: 'PENDING_REVIEW',
       rawPayload: rawEvent.payload,
       metadata: {

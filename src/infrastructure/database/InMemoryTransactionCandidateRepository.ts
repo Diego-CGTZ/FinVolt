@@ -33,6 +33,15 @@ export class InMemoryTransactionCandidateRepository implements ITransactionCandi
     return null;
   }
 
+  public async findByFingerprint(fingerprint: string): Promise<TransactionCandidate | null> {
+    for (const cand of this.candidates.values()) {
+      if (cand.fingerprint === fingerprint) {
+        return { ...cand };
+      }
+    }
+    return null;
+  }
+
   public async findAll(filter?: CandidateFilter): Promise<TransactionCandidate[]> {
     let result = Array.from(this.candidates.values());
 
@@ -41,6 +50,9 @@ export class InMemoryTransactionCandidateRepository implements ITransactionCandi
     }
     if (filter?.status) {
       result = result.filter((c) => c.status === filter.status);
+    }
+    if (filter?.fingerprint) {
+      result = result.filter((c) => c.fingerprint === filter.fingerprint);
     }
     if (filter?.provider) {
       result = result.filter(

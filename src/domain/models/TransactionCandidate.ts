@@ -81,6 +81,9 @@ export interface TransactionCandidate {
   /** Metadatos adicionales de la extracción */
   metadata: Record<string, unknown>;
 
+  /** Huella determinística calculada para detección de duplicados (US-025) */
+  fingerprint?: string | null;
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -98,6 +101,7 @@ export interface CreateCandidateDTO {
   occurredAt?: Date;
   confidenceScore: number;
   accountHint?: AccountHint;
+  fingerprint?: string | null;
   rawPayload?: Record<string, unknown>;
   metadata?: Record<string, unknown>;
 }

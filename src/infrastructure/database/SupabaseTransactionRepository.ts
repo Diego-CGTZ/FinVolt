@@ -9,6 +9,7 @@ import type {
   TransactionFilters,
   PaginationOptions,
 } from '../../domain/repositories/ITransactionRepository';
+import { TransactionFingerprintService } from '../../domain/services/fingerprint/TransactionFingerprintService';
 
 /**
  * SupabaseTransactionRepository (US-008)
@@ -88,7 +89,7 @@ export class SupabaseTransactionRepository implements ITransactionRepository {
       source_event_id:      input.sourceEventId ?? null,
       status:               input.status        ?? 'CONFIRMED',
       confidence_score:     input.confidenceScore ?? null,
-      fingerprint:          input.fingerprint    ?? null,
+      fingerprint:          input.fingerprint   ?? TransactionFingerprintService.fromInput(input),
       linked_transaction_id: input.linkedTransactionId ?? null,
     };
 
