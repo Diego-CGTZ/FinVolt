@@ -26,6 +26,7 @@ export type TransactionType = 'EXPENSE' | 'INCOME' | 'TRANSFER';
  */
 export type TransactionStatus =
   | 'CANDIDATE'   // Auto-detectada, pendiente de revisión
+  | 'MATCHED'     // Emparejada/vinculada con otra fuente o candidato pendiente de confirmación
   | 'CONFIRMED'   // Confirmada (por usuario o alta confianza)
   | 'PENDING'     // Autorizada, no liquidada
   | 'POSTED'      // Liquidada/asentada
