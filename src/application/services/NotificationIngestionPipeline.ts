@@ -29,6 +29,7 @@ import {
 import { NotificationParserRegistry } from '../../domain/services/parsers/NotificationParserRegistry';
 import { CandidateFactory } from '../../domain/services/CandidateFactory';
 import { InMemoryTransactionCandidateRepository } from '../../infrastructure/database/InMemoryTransactionCandidateRepository';
+import { DuplicateDetectorService } from '../../domain/services/duplication/DuplicateDetectorService';
 
 export type NotificationInput =
   | AndroidNotificationInput
@@ -49,7 +50,7 @@ export interface PipelineExecutionResult {
   candidate: TransactionCandidate | null;
   provider: DetectedProvider;
   financialDetection: FinancialDetectionResult;
-  status: 'SUCCESS' | 'IGNORED' | 'FAILED';
+  status: 'SUCCESS' | 'IGNORED' | 'FAILED' | 'DUPLICATE';
   message: string;
 }
 
@@ -60,16 +61,26 @@ export class NotificationIngestionPipeline {
   private candidateRepository: ITransactionCandidateRepository;
   private parserRegistry: NotificationParserRegistry;
   private listeners: Set<CandidateListener> = new Set();
+  private enableDeduplication = false;
 
   constructor(
     rawEventService: RawEventService,
     candidateRepository?: ITransactionCandidateRepository,
     parserRegistry?: NotificationParserRegistry,
+    options?: { enableDeduplication?: boolean },
   ) {
     this.rawEventService = rawEventService;
     this.candidateRepository =
       candidateRepository || new InMemoryTransactionCandidateRepository();
     this.parserRegistry = parserRegistry || NotificationParserRegistry.getInstance();
+    this.enableDeduplication = options?.enableDeduplication ?? false;
+  }
+
+  /**
+   * Habilita o deshabilita la detección de duplicados en tiempo de ejecución.
+   */
+  public setDeduplicationEnabled(enabled: boolean): void {
+    this.enableDeduplication = enabled;
   }
 
   /**
@@ -84,10 +95,11 @@ export class NotificationIngestionPipeline {
    * Ejecuta el pipeline completo a partir de una notificación entrante o un RawEvent existente.
    *
    * Flujo:
-   * Notification -> Raw Event -> Provider Detection -> Financial Detection -> Parser -> Candidate
+   * Notification -> Raw Event -> Provider Detection -> Financial Detection -> Parser -> Candidate -> Deduplication
    */
   public async processNotification(
     input: NotificationInput | RawEvent,
+    options?: { enableDeduplication?: boolean },
   ): Promise<PipelineExecutionResult> {
     // ── Paso 1: Raw Event ──────────────────────────────────────────────────────────
     let rawEvent: RawEvent;
@@ -169,11 +181,38 @@ export class NotificationIngestionPipeline {
       rawEvent.userId,
     );
 
+    // ── Paso 5.1: Detección de Duplicados (US-026) ─────────────────────────────────
+    if (this.enableDeduplication || options?.enableDeduplication) {
+      const existingCandidates = await this.candidateRepository.findAll();
+      const duplicateMatch = DuplicateDetectorService.detectDuplicate(candidate, {
+        candidates: existingCandidates,
+      });
+
+      if (duplicateMatch.isDuplicate) {
+        candidate.status = 'DUPLICATE';
+        candidate.metadata = {
+          ...candidate.metadata,
+          duplicateMatch,
+        };
+        await this.candidateRepository.save(candidate);
+        rawEvent = await this.rawEventService.markAsDuplicate(rawEvent.id, duplicateMatch.reason);
+
+        return {
+          rawEvent,
+          candidate,
+          provider,
+          financialDetection,
+          status: 'DUPLICATE',
+          message: `Duplicado detectado: ${duplicateMatch.reason}`,
+        };
+      }
+    }
+
     // Persistir candidato en repositorio desacoplado
     await this.candidateRepository.save(candidate);
 
     // Actualizar estado del RawEvent a PROCESSED (con enlace en metadata)
-    await this.rawEventService.markAsProcessed(rawEvent.id);
+    rawEvent = await this.rawEventService.markAsProcessed(rawEvent.id);
 
     // Notificar a listeners reactivos
     this.notifyCandidateGenerated(candidate);

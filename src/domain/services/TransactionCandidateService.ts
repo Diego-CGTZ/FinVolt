@@ -201,9 +201,37 @@ export class TransactionCandidateService {
   }
 
   /**
+   * Marca un candidato como DUPLICATE cuando se detecta coincidencia con otra transacción o candidato (US-026).
+   */
+  public async markAsDuplicate(
+    candidateId: string,
+    reason?: string,
+    duplicateInfo?: Record<string, unknown>,
+  ): Promise<TransactionCandidate> {
+    const candidate = await this.candidateRepository.findById(candidateId);
+    if (!candidate) {
+      throw new Error(`Candidato no encontrado: ${candidateId}`);
+    }
+
+    if (candidate.status === 'RECONCILED') {
+      throw new Error('No se puede marcar como duplicado un candidato que ya ha sido formalmente reconciliado.');
+    }
+
+    const updated = await this.candidateRepository.updateStatus(candidateId, 'DUPLICATE');
+    updated.metadata = {
+      ...updated.metadata,
+      duplicateReason: reason || 'Detectado como duplicado',
+      duplicateDetectedAt: new Date().toISOString(),
+      ...(duplicateInfo || {}),
+    };
+    await this.candidateRepository.save(updated);
+    return updated;
+  }
+
+  /**
    * Determina si el candidato se encuentra en un estado terminal o cerrado.
    */
   public isFinalized(candidate: TransactionCandidate): boolean {
-    return candidate.status === 'RECONCILED' || candidate.status === 'REJECTED';
+    return candidate.status === 'RECONCILED' || candidate.status === 'REJECTED' || candidate.status === 'DUPLICATE';
   }
 }

@@ -75,6 +75,17 @@ export class RawEventService {
   }
 
   /**
+   * Marca un evento como duplicado de otro evento ya registrado (US-026).
+   */
+  async markAsDuplicate(id: string, reason?: string): Promise<RawEvent> {
+    return this.repository.updateStatus(id, {
+      status: 'DUPLICATE',
+      errorMessage: reason || 'Evento duplicado descartado',
+      processedAt: new Date(),
+    });
+  }
+
+  /**
    * Marca un evento para reprocesamiento. Restablece su estado a PENDING,
    * permitiendo que los parsers lo tomen nuevamente.
    */
