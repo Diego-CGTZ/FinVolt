@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -702,6 +702,7 @@ export function HomeScreen({ onNavigateTab }: HomeScreenProps) {
                   </View>
                 )}
               </View>
+            </View>
 
             {/* Accesos directos rápidos */}
             {onNavigateTab && (
