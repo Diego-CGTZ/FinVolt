@@ -18,3 +18,5 @@ export { SupabaseTransactionCandidateRepository } from './SupabaseTransactionCan
 // US-024
 export { InMemoryMerchantRuleRepository } from './InMemoryMerchantRuleRepository';
 export { SupabaseMerchantRuleRepository } from './SupabaseMerchantRuleRepository';
+// US-032
+export { InMemoryUserCorrectionRepository } from './InMemoryUserCorrectionRepository';

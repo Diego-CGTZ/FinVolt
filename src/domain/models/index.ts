@@ -41,3 +41,5 @@ export type {
   NormalizedMerchantResult,
   CreateMerchantRuleDTO,
 } from './MerchantRule';
+// US-032 — Modelo de correcciones de usuario y reglas reutilizables
+export * from './UserCorrection';

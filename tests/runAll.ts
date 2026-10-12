@@ -12,6 +12,7 @@ import { runFinancialStateMachineTests } from './unit/FinancialStateMachine.test
 import { runConfidenceScoreTests } from './unit/ConfidenceScore.test';
 import { runConfidenceThresholdsTests } from './unit/ConfidenceThresholds.test';
 import { runDeterministicCategorizationTests } from './unit/DeterministicCategorization.test';
+import { runUserCorrectionServiceTests } from './unit/UserCorrectionService.test';
 
 async function main() {
   console.log('========================================');
@@ -74,8 +75,12 @@ async function main() {
   await runDeterministicCategorizationTests();
   console.log('');
 
+  console.log('--- Suite 15: US-032 User Category Corrections ---');
+  await runUserCorrectionServiceTests();
+  console.log('');
+
   console.log('========================================');
-  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (125/125 tests)!');
+  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (135/135 tests)!');
   console.log('========================================');
 }
 
