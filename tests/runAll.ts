@@ -7,6 +7,7 @@ import { runTransactionCandidateServiceTests } from './unit/TransactionCandidate
 import { runMerchantNormalizerTests } from './unit/MerchantNormalizer.test';
 import { runTransactionFingerprintTests } from './unit/TransactionFingerprint.test';
 import { runDuplicateDetectorTests } from './unit/DuplicateDetector.test';
+import { runCrossSourceReconciliationTests } from './unit/CrossSourceReconciliation.test';
 
 async function main() {
   console.log('========================================');
@@ -49,8 +50,12 @@ async function main() {
   await runDuplicateDetectorTests();
   console.log('');
 
+  console.log('--- Suite 10: US-027 Cross-Source Reconciliation ---');
+  await runCrossSourceReconciliationTests();
+  console.log('');
+
   console.log('========================================');
-  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (71/71 tests)!');
+  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (81/81 tests)!');
   console.log('========================================');
 }
 

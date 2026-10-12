@@ -168,6 +168,7 @@ export class DuplicateDetectorService {
         currency: tx.currency,
         date: tx.occurredAt,
         merchant: tx.merchant || tx.merchantRaw || '',
+        merchantRaw: tx.merchantRaw || undefined,
         type: tx.type,
       }, config);
 
@@ -189,6 +190,7 @@ export class DuplicateDetectorService {
         currency: cand.currency,
         date: cand.occurredAt,
         merchant: cand.merchant || cand.merchantRaw || '',
+        merchantRaw: cand.merchantRaw || undefined,
         type: cand.type,
       }, config);
 
@@ -213,6 +215,7 @@ export class DuplicateDetectorService {
       currency: string;
       date: Date | string;
       merchant: string;
+      merchantRaw?: string;
       type: string;
     },
     config?: DuplicateDetectorConfig,
@@ -266,10 +269,26 @@ export class DuplicateDetectorService {
     }
 
     // Regla 5: Similitud semántica de comercio
-    const merchantSimilarity = this.calculateMerchantSimilarity(
+    let merchantSimilarity = this.calculateMerchantSimilarity(
       target.merchant || '',
       existing.merchant,
     );
+
+    // Si además tenemos merchantRaw disponibles, evaluamos si coinciden directamente o aportan mayor similitud
+    if (target.merchantRaw || existing.merchantRaw) {
+      const targetRaw = (target.merchantRaw || '').trim().toLowerCase();
+      const existingRaw = (existing.merchantRaw || '').trim().toLowerCase();
+      if (targetRaw && existingRaw && targetRaw === existingRaw) {
+        merchantSimilarity = 1.0;
+      } else {
+        const rawSim = this.calculateMerchantSimilarity(
+          target.merchantRaw || target.merchant || '',
+          existing.merchantRaw || existing.merchant || '',
+        );
+        merchantSimilarity = Math.max(merchantSimilarity, rawSim);
+      }
+    }
+
     if (merchantSimilarity < minMerchantSim) {
       return this.noneResult();
     }
@@ -461,6 +480,7 @@ export class DuplicateDetectorService {
         currency: target.currency,
         date: target.occurredAt,
         merchant: target.merchant || target.merchantRaw || '',
+        merchantRaw: target.merchantRaw,
         type: target.type,
       };
     }
