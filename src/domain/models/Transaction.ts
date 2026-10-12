@@ -15,6 +15,8 @@
  *   - `status`: ciclo de vida formal manejado por la state machine (US-028).
  */
 
+import type { RawEventSource } from './RawEvent';
+
 /** Tipo de movimiento financiero. */
 export type TransactionType = 'EXPENSE' | 'INCOME' | 'TRANSFER';
 
@@ -104,8 +106,28 @@ export interface Transaction {
    */
   linkedTransactionId: string | null;
 
+  /**
+   * Registro histórico de todas las fuentes reconciliadas asociadas a esta transacción (US-027).
+   * Permite asociar notification, email, statement, etc., conservando evidencia íntegra.
+   */
+  sourcesEvidence?: SourceEvidence[];
+
   createdAt: Date;
   updatedAt: Date;
+}
+
+/** Evidencia de una fuente de origen individual asociada a una transacción reconciliada (US-027) */
+export interface SourceEvidence {
+  source: TransactionSource | RawEventSource;
+  sourceEventId: string;
+  candidateId?: string;
+  provider?: string;
+  occurredAt: Date;
+  capturedAt: Date;
+  merchantRaw?: string | null;
+  amountMinor?: number;
+  confidenceScore?: number | null;
+  rawPayloadExcerpt?: Record<string, unknown>;
 }
 
 // ── Input types ───────────────────────────────────────────────────────────────
@@ -133,6 +155,7 @@ export interface CreateTransactionInput {
   confidenceScore?: number;
   fingerprint?: string;
   linkedTransactionId?: string;
+  sourcesEvidence?: SourceEvidence[];
 }
 
 /** Campos actualizables por el usuario en una transacción existente. */
@@ -151,6 +174,7 @@ export interface UpdateTransactionInput {
   confidenceScore?: number | null;
   fingerprint?: string | null;
   linkedTransactionId?: string | null;
+  sourcesEvidence?: SourceEvidence[];
 }
 
 // ── Utilidades de dominio ──────────────────────────────────────────────────────

@@ -91,6 +91,7 @@ export class SupabaseTransactionRepository implements ITransactionRepository {
       confidence_score:     input.confidenceScore ?? null,
       fingerprint:          input.fingerprint   ?? TransactionFingerprintService.fromInput(input),
       linked_transaction_id: input.linkedTransactionId ?? null,
+      sources_evidence:     input.sourcesEvidence ?? [],
     };
 
     const { data, error } = await supabase
@@ -121,6 +122,9 @@ export class SupabaseTransactionRepository implements ITransactionRepository {
     if (input.fingerprint  !== undefined) patch.fingerprint       = input.fingerprint;
     if (input.linkedTransactionId !== undefined) {
       patch.linked_transaction_id = input.linkedTransactionId;
+    }
+    if (input.sourcesEvidence !== undefined) {
+      patch.sources_evidence = input.sourcesEvidence;
     }
 
     patch.updated_at = new Date().toISOString();
@@ -178,6 +182,7 @@ export class SupabaseTransactionRepository implements ITransactionRepository {
       confidenceScore:      row.confidence_score ?? null,
       fingerprint:          row.fingerprint ?? null,
       linkedTransactionId:  row.linked_transaction_id ?? null,
+      sourcesEvidence:      Array.isArray(row.sources_evidence) ? row.sources_evidence : [],
       createdAt:            new Date(row.created_at),
       updatedAt:            new Date(row.updated_at),
     };

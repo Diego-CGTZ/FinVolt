@@ -49,6 +49,11 @@ export interface FingerprintInput {
   merchant?: string | null;
 
   /**
+   * Nombre original/crudo del comercio capturado en la fuente si está disponible.
+   */
+  merchantRaw?: string | null;
+
+  /**
    * Tipo de movimiento financiero ('EXPENSE', 'INCOME', 'TRANSFER').
    */
   type: TransactionType | string;
