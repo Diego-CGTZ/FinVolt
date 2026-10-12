@@ -9,6 +9,7 @@ import type { RawEvent } from '../models/RawEvent';
 import type { ParsedCandidateResult } from './parsers/INotificationParser';
 import type { TransactionCandidate } from '../models/TransactionCandidate';
 import { TransactionFingerprintService } from './fingerprint/TransactionFingerprintService';
+import { ConfidenceScoringService } from './confidence/ConfidenceScoringService';
 
 export class CandidateFactory {
   public static create(
@@ -31,6 +32,22 @@ export class CandidateFactory {
       type: parsed.type,
     });
 
+    const confidenceScore =
+      typeof parsed.confidence === 'number'
+        ? Math.min(100, Math.max(0, parsed.confidence))
+        : ConfidenceScoringService.calculate({
+            source: rawEvent.source,
+            amount: parsed.amount,
+            amountMinor,
+            currency: parsed.currency || 'MXN',
+            occurredAt,
+            merchant: parsed.merchant,
+            merchantRaw: parsed.merchantRaw,
+            accountHint: parsed.accountHint,
+            provider,
+            rawPayload: rawEvent.payload,
+          });
+
     return {
       id,
       userId: userId || rawEvent.userId,
@@ -44,7 +61,7 @@ export class CandidateFactory {
       merchantRaw: parsed.merchantRaw,
       merchant: parsed.merchant,
       occurredAt,
-      confidenceScore: Math.min(100, Math.max(0, parsed.confidence)),
+      confidenceScore,
       accountHint: parsed.accountHint,
       fingerprint,
       status: 'PENDING_REVIEW',
