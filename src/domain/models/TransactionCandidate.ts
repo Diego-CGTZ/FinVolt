@@ -18,7 +18,8 @@ export type CandidateStatus =
   | 'PENDING_REVIEW'   // Detectado, pendiente de revisión/confirmación
   | 'AUTO_CONFIRMED'   // Confirmado automáticamente por reglas de alta confianza
   | 'REJECTED'         // Descartado por el usuario o por regla de exclusión
-  | 'RECONCILED';      // Vinculado y reconciliado con una transacción existente
+  | 'RECONCILED'       // Vinculado y reconciliado con una transacción existente
+  | 'DUPLICATE';       // Detectado como duplicado de otra transacción o candidato existente
 
 export interface AccountHint {
   last4Digits?: string;

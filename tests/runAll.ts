@@ -6,6 +6,7 @@ import { runBBVAParserTests } from './unit/BBVANotificationParser.test';
 import { runTransactionCandidateServiceTests } from './unit/TransactionCandidateService.test';
 import { runMerchantNormalizerTests } from './unit/MerchantNormalizer.test';
 import { runTransactionFingerprintTests } from './unit/TransactionFingerprint.test';
+import { runDuplicateDetectorTests } from './unit/DuplicateDetector.test';
 
 async function main() {
   console.log('========================================');
@@ -44,8 +45,12 @@ async function main() {
   await runTransactionFingerprintTests();
   console.log('');
 
+  console.log('--- Suite 9: US-026 Duplicate Detector ---');
+  await runDuplicateDetectorTests();
+  console.log('');
+
   console.log('========================================');
-  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (61/61 tests)!');
+  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (71/71 tests)!');
   console.log('========================================');
 }
 

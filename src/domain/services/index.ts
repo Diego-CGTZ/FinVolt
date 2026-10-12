@@ -13,3 +13,4 @@ export * from './TransactionCandidateService';
 export * from './CandidateFactory';
 export * from './MerchantNormalizer';
 export * from './fingerprint';
+export * from './duplication';
