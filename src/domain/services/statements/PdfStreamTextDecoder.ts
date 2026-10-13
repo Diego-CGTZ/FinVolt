@@ -177,8 +177,8 @@ export class PdfStreamTextDecoder {
   public static extractTextFromStreamBlock(streamText: string): string {
     const textPieces: string[] = [];
 
-    // 1. Extraer todos los bloques BT ... ET
-    const btRegex = /BT[\s\S]*?ET/g;
+    // 1. Extraer todos los bloques BT ... ET con límites de palabra para evitar subcadenas como LIBRETON o TARGET
+    const btRegex = /\bBT\b[\s\S]*?\bET\b/g;
     let btMatch: RegExpExecArray | null;
 
     while ((btMatch = btRegex.exec(streamText)) !== null) {
