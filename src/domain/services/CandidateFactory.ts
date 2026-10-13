@@ -65,7 +65,7 @@ export class CandidateFactory {
       accountHint: parsed.accountHint,
       fingerprint,
       status: 'PENDING_REVIEW',
-      rawPayload: rawEvent.payload,
+      rawPayload: JSON.parse(JSON.stringify(rawEvent.payload || {})),
       metadata: {
         parserName: parsed.parserName,
         capturedAt: rawEvent.receivedAt.toISOString(),
