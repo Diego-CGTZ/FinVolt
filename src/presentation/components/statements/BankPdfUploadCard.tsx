@@ -47,13 +47,61 @@ export function BankPdfUploadCard({
   const [uploadResult, setUploadResult] = useState<UploadBankPdfResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const handlePickRealDocument = async () => {
+    try {
+      setErrorMessage(null);
+      setUploadResult(null);
+
+      const DocumentPicker = await import('expo-document-picker');
+      const FileSystem = await import('expo-file-system');
+
+      const docRes = await DocumentPicker.getDocumentAsync({
+        type: 'application/pdf',
+        copyToCacheDirectory: true,
+      });
+
+      if (docRes.canceled || !docRes.assets || docRes.assets.length === 0) {
+        return;
+      }
+
+      const asset = docRes.assets[0];
+      const fileName = asset.name || 'estado_cuenta.pdf';
+      const fileSizeBytes = asset.size || 0;
+      const mimeType = asset.mimeType || 'application/pdf';
+
+      let fileContent: string = '%PDF-';
+      try {
+        if (asset.uri) {
+          const base64Data = await FileSystem.readAsStringAsync(asset.uri, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          fileContent = `data:application/pdf;base64,${base64Data}`;
+        }
+      } catch {
+        fileContent = `%PDF-1.4 ${fileName}`;
+      }
+
+      const computedSha = BankPdfValidator.computeSha256(fileContent, `${fileName}-${fileSizeBytes}`);
+
+      setSelectedFile({
+        fileName,
+        fileSizeBytes: fileSizeBytes || 50000,
+        mimeType,
+        content: fileContent,
+        sha256: computedSha,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setErrorMessage(`No se pudo seleccionar el archivo del dispositivo: ${msg}`);
+    }
+  };
+
   const handleSelectMockDemoFile = () => {
-    // Genera un archivo de demostración válido para prueba manual en Expo / simulador
     const mockPdfHeader = '%PDF-1.4 Estado de Cuenta BBVA Octubre 2026';
     const sha = BankPdfValidator.computeSha256(mockPdfHeader);
     const mockFile: SelectedPdfFile = {
-      fileName: 'estado_cuenta_bbva_octubre.pdf',
-      fileSizeBytes: 245000, // ~245 KB
+      fileName: 'estado_cuenta_bbVA_octubre.pdf',
+      fileSizeBytes: 245000,
       mimeType: 'application/pdf',
       content: mockPdfHeader,
       sha256: sha,
@@ -123,6 +171,8 @@ export function BankPdfUploadCard({
     return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   };
 
+  const detectedBank = selectedFile ? BankPdfValidator.detectBankHint(selectedFile.fileName) : null;
+
   return (
     <View style={styles.card}>
       {/* Header */}
@@ -138,28 +188,40 @@ export function BankPdfUploadCard({
 
       {/* Zona de Selección / Arrastre */}
       {!selectedFile && !uploadResult && (
-        <TouchableOpacity
-          style={styles.dropzone}
-          onPress={handleSelectMockDemoFile}
-          disabled={disabled || isUploading}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="cloud-upload-outline" size={36} color="#94A3B8" />
-          <Text style={styles.dropzoneTitle}>Seleccionar archivo PDF</Text>
-          <Text style={styles.dropzoneSubtitle}>
-            Toca aquí para seleccionar un extracto bancario en PDF
-          </Text>
-          <View style={styles.badgeRow}>
-            <View style={styles.badge}>
-              <Ionicons name="lock-closed-outline" size={12} color="#38BDF8" />
-              <Text style={styles.badgeText}>Encriptación SHA-256</Text>
+        <View style={styles.selectionContainer}>
+          <TouchableOpacity
+            style={styles.dropzone}
+            onPress={handlePickRealDocument}
+            disabled={disabled || isUploading}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="folder-open-outline" size={36} color="#38BDF8" />
+            <Text style={styles.dropzoneTitle}>Elegir PDF desde mi dispositivo</Text>
+            <Text style={styles.dropzoneSubtitle}>
+              Abre el explorador de archivos para seleccionar tu estado de cuenta real
+            </Text>
+            <View style={styles.badgeRow}>
+              <View style={styles.badge}>
+                <Ionicons name="lock-closed-outline" size={12} color="#38BDF8" />
+                <Text style={styles.badgeText}>Encriptación SHA-256</Text>
+              </View>
+              <View style={styles.badge}>
+                <Ionicons name="shield-checkmark-outline" size={12} color="#10B981" />
+                <Text style={styles.badgeText}>RLS Privado</Text>
+              </View>
             </View>
-            <View style={styles.badge}>
-              <Ionicons name="shield-checkmark-outline" size={12} color="#10B981" />
-              <Text style={styles.badgeText}>RLS Privado</Text>
-            </View>
-          </View>
-        </TouchableOpacity>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.demoButton}
+            onPress={handleSelectMockDemoFile}
+            disabled={disabled || isUploading}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="flask-outline" size={15} color="#94A3B8" />
+            <Text style={styles.demoButtonText}>Cargar archivo de prueba rápida</Text>
+          </TouchableOpacity>
+        </View>
       )}
 
       {/* Archivo Seleccionado */}
@@ -176,6 +238,12 @@ export function BankPdfUploadCard({
               <Text style={styles.fileMeta}>
                 {formatFileSize(selectedFile.fileSizeBytes)} • {selectedFile.mimeType}
               </Text>
+              {detectedBank && detectedBank !== 'UNKNOWN' && (
+                <View style={styles.detectedBankBadge}>
+                  <Ionicons name="business-outline" size={11} color="#38BDF8" />
+                  <Text style={styles.detectedBankText}>Banco detectado: {detectedBank}</Text>
+                </View>
+              )}
             </View>
             <TouchableOpacity
               onPress={handleClearSelection}
@@ -257,6 +325,41 @@ const styles = StyleSheet.create({
     marginVertical: 10,
     borderWidth: 1,
     borderColor: '#334155',
+  },
+  selectionContainer: {
+    gap: 10,
+  },
+  demoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: '#0F172A',
+    borderWidth: 1,
+    borderColor: '#334155',
+    gap: 6,
+  },
+  demoButtonText: {
+    color: '#94A3B8',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  detectedBankBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    alignSelf: 'flex-start',
+    marginTop: 4,
+    gap: 4,
+  },
+  detectedBankText: {
+    color: '#38BDF8',
+    fontSize: 10,
+    fontWeight: '600',
   },
   header: {
     flexDirection: 'row',
