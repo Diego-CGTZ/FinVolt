@@ -19,6 +19,7 @@ import { runOutlookAdapterTests } from './unit/OutlookAdapter.test';
 import { runEmailReconciliationTests } from './unit/EmailReconciliation.test';
 import { runBankPdfUploadTests } from './unit/BankPdfUpload.test';
 import { runPdfTextExtractionTests } from './unit/PdfTextExtraction.test';
+import { runBankStatementParserTests } from './unit/BankStatementParser.test';
 
 async function main() {
   console.log('========================================');
@@ -109,8 +110,12 @@ async function main() {
   await runPdfTextExtractionTests();
   console.log('');
 
+  console.log('--- Suite 22: US-039 Bank Statement Parser ---');
+  await runBankStatementParserTests();
+  console.log('');
+
   console.log('========================================');
-  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (207/207 tests)!');
+  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (219/219 tests)!');
   console.log('========================================');
 }
 
