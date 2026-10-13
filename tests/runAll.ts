@@ -21,6 +21,7 @@ import { runBankPdfUploadTests } from './unit/BankPdfUpload.test';
 import { runPdfTextExtractionTests } from './unit/PdfTextExtraction.test';
 import { runBankStatementParserTests } from './unit/BankStatementParser.test';
 import { runCsvIngestionTests } from './unit/CsvIngestion.test';
+import { runXlsxIngestionTests } from './unit/XlsxIngestion.test';
 
 async function main() {
   console.log('========================================');
@@ -119,8 +120,12 @@ async function main() {
   await runCsvIngestionTests();
   console.log('');
 
+  console.log('--- Suite 24: US-041 XLSX Ingestion ---');
+  await runXlsxIngestionTests();
+  console.log('');
+
   console.log('========================================');
-  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (231/231 tests)!');
+  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (243/243 tests)!');
   console.log('========================================');
 }
 

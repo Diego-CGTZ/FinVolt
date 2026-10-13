@@ -5,3 +5,4 @@ export * from './IBankStatementStorageService';
 export * from './IPdfTextExtractor';
 export * from './IBankStatementParser';
 export * from './ICsvStatementParser';
+export * from './IXlsxStatementParser';
