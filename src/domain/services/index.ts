@@ -24,3 +24,4 @@ export * from './statements';
 export * from './csv';
 export * from './xlsx';
 export * from './mapping';
+export * from './recurring';

@@ -7,3 +7,4 @@
  */
 export * from './statements/BankPdfUploadCard';
 export * from './statements/ManualColumnMappingModal';
+export * from './recurring';

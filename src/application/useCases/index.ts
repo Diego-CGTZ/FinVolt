@@ -7,3 +7,4 @@
  */
 export * from './GetBalancesUseCase';
 export * from './GetLiquidityUseCase';
+export * from './DetectRecurringTransactionsUseCase';
