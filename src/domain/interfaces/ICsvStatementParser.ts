@@ -16,10 +16,10 @@ import type { RawEvent } from '../models/RawEvent';
 
 export interface CsvColumnMapping {
   /** Nombre o índice (0-based) de la columna de fecha */
-  dateColumn: string | number;
+  dateColumn?: string | number;
 
   /** Nombre o índice (0-based) de la columna de concepto o descripción */
-  descriptionColumn: string | number;
+  descriptionColumn?: string | number;
 
   /** Nombre o índice de columna única de monto con signo (+/-) */
   amountColumn?: string | number;

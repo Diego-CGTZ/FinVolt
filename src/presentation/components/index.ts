@@ -6,3 +6,4 @@
  * Future: BalanceCard, TransactionItem, BudgetBar, etc.
  */
 export * from './statements/BankPdfUploadCard';
+export * from './statements/ManualColumnMappingModal';
