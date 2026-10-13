@@ -8,6 +8,7 @@
 import type { INotificationParser } from './INotificationParser';
 import type { RawEvent } from '../../models/RawEvent';
 import { BBVANotificationParser } from './BBVANotificationParser';
+import { FinancialEmailParser } from './FinancialEmailParser';
 import { GenericNotificationParser } from './GenericNotificationParser';
 
 export class NotificationParserRegistry {
@@ -19,6 +20,7 @@ export class NotificationParserRegistry {
     this.fallbackParser = new GenericNotificationParser();
     // Registrar parsers especializados en orden de prioridad
     this.register(new BBVANotificationParser());
+    this.register(new FinancialEmailParser());
   }
 
   public static getInstance(): NotificationParserRegistry {

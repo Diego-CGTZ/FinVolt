@@ -14,6 +14,7 @@ import { runConfidenceThresholdsTests } from './unit/ConfidenceThresholds.test';
 import { runDeterministicCategorizationTests } from './unit/DeterministicCategorization.test';
 import { runUserCorrectionServiceTests } from './unit/UserCorrectionService.test';
 import { runGmailAdapterTests } from './unit/GmailAdapter.test';
+import { runFinancialEmailParserTests } from './unit/FinancialEmailParser.test';
 
 async function main() {
   console.log('========================================');
@@ -84,8 +85,12 @@ async function main() {
   await runGmailAdapterTests();
   console.log('');
 
+  console.log('--- Suite 17: US-034 Financial Email Parser ---');
+  await runFinancialEmailParserTests();
+  console.log('');
+
   console.log('========================================');
-  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (147/147 tests)!');
+  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (159/159 tests)!');
   console.log('========================================');
 }
 
