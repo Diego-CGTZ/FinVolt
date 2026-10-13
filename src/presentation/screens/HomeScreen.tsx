@@ -21,6 +21,13 @@ import {
   calculateCreditObligations,
 } from '../../domain/services/BalanceCalculatorService';
 import { ACCOUNT_TYPE_CONFIG } from './AccountsScreen';
+import {
+  BankPdfUploadCard,
+  type SelectedPdfFile,
+} from '../components/statements/BankPdfUploadCard';
+import { BankPdfUploadService } from '../../domain/services/statements/BankPdfUploadService';
+import { SupabaseRawEventRepository } from '../../infrastructure/database/SupabaseRawEventRepository';
+import { InMemoryStatementStorageService } from '../../infrastructure/storage/InMemoryStatementStorageService';
 
 interface HomeScreenProps {
   onNavigateTab?: (tab: 'ACCOUNTS' | 'TRANSACTIONS') => void;
@@ -67,6 +74,24 @@ export function HomeScreen({ onNavigateTab }: HomeScreenProps) {
     () => calculateCreditObligations(accounts, transactions),
     [accounts, transactions],
   );
+
+  const pdfUploadService = useMemo(() => {
+    return new BankPdfUploadService({
+      rawEventRepository: new SupabaseRawEventRepository(),
+      storageService: new InMemoryStatementStorageService(),
+    });
+  }, []);
+
+  const handleUploadPdf = async (file: SelectedPdfFile) => {
+    return await pdfUploadService.uploadStatement({
+      userId: user?.id || 'usr-local-demo',
+      fileName: file.fileName,
+      fileSizeBytes: file.fileSizeBytes,
+      mimeType: file.mimeType,
+      content: file.content,
+      sha256: file.sha256,
+    });
+  };
 
   async function handleSignOut() {
     Alert.alert('Cerrar sesión', '¿Estás seguro que deseas salir de FinVolt?', [
@@ -702,6 +727,20 @@ export function HomeScreen({ onNavigateTab }: HomeScreenProps) {
                   </View>
                 )}
               </View>
+            </View>
+
+            {/* Sección: Carga de Estados de Cuenta PDF (US-037) */}
+            <View style={styles.sectionContainer}>
+              <View style={styles.sectionHeaderRow}>
+                <View style={styles.sectionHeaderWithIcon}>
+                  <Ionicons name="document-text-outline" size={17} color="#38bdf8" />
+                  <Text style={styles.sectionTitle}>Estados de Cuenta (PDF)</Text>
+                </View>
+              </View>
+              <BankPdfUploadCard
+                userId={user?.id || 'usr-local-demo'}
+                onUploadFile={handleUploadPdf}
+              />
             </View>
 
             {/* Accesos directos rápidos */}
