@@ -20,3 +20,5 @@ export * from './confidence';
 export * from './categorization';
 export * from './ingestion';
 export * from './parsers';
+export * from './statements';
+export * from './csv';

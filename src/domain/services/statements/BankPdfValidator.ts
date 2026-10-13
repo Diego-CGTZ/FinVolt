@@ -145,8 +145,8 @@ export class BankPdfValidator {
       if (str.includes('BBVA') || str.includes('BANCOMER')) return 'BBVA';
       if (str.includes('SANTANDER')) return 'SANTANDER';
       if (str.includes('BANORTE') || str.includes('IXE')) return 'BANORTE';
-      if (str.includes('CITIBANAMEX') || str.includes('BANAMEX') || str.includes('CITI')) return 'CITIBANAMEX';
-      if (str.includes('NU') || str.includes('NU BANK') || str.includes('NUBANK')) return 'NU';
+      if (str.includes('CITIBANAMEX') || str.includes('BANAMEX') || /\bCITI\b/i.test(str)) return 'CITIBANAMEX';
+      if (/\bNU\b/i.test(str) || str.includes('NU BANK') || str.includes('NUBANK') || str.includes('NU MEXICO')) return 'NU';
       if (str.includes('AMEX') || str.includes('AMERICAN EXPRESS')) return 'AMEX';
       if (str.includes('HSBC')) return 'HSBC';
       if (str.includes('SCOTIABANK')) return 'SCOTIABANK';
@@ -155,7 +155,7 @@ export class BankPdfValidator {
       if (str.includes('BANCO AZTECA') || str.includes('AZTECA')) return 'BANCO_AZTECA';
       if (str.includes('HEY BANCO') || str.includes('HEYBANCO')) return 'HEY_BANCO';
       if (str.includes('KLAR')) return 'KLAR';
-      if (str.includes('STP')) return 'STP';
+      if (/\bSTP\b/i.test(str)) return 'STP';
       return null;
     };
 

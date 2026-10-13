@@ -20,6 +20,7 @@ import { runEmailReconciliationTests } from './unit/EmailReconciliation.test';
 import { runBankPdfUploadTests } from './unit/BankPdfUpload.test';
 import { runPdfTextExtractionTests } from './unit/PdfTextExtraction.test';
 import { runBankStatementParserTests } from './unit/BankStatementParser.test';
+import { runCsvIngestionTests } from './unit/CsvIngestion.test';
 
 async function main() {
   console.log('========================================');
@@ -114,8 +115,12 @@ async function main() {
   await runBankStatementParserTests();
   console.log('');
 
+  console.log('--- Suite 23: US-040 CSV Ingestion ---');
+  await runCsvIngestionTests();
+  console.log('');
+
   console.log('========================================');
-  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (219/219 tests)!');
+  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (231/231 tests)!');
   console.log('========================================');
 }
 
