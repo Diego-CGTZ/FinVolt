@@ -16,6 +16,7 @@ import { runUserCorrectionServiceTests } from './unit/UserCorrectionService.test
 import { runGmailAdapterTests } from './unit/GmailAdapter.test';
 import { runFinancialEmailParserTests } from './unit/FinancialEmailParser.test';
 import { runOutlookAdapterTests } from './unit/OutlookAdapter.test';
+import { runEmailReconciliationTests } from './unit/EmailReconciliation.test';
 
 async function main() {
   console.log('========================================');
@@ -94,8 +95,12 @@ async function main() {
   await runOutlookAdapterTests();
   console.log('');
 
+  console.log('--- Suite 19: US-036 Email Cross-Source Reconciliation ---');
+  await runEmailReconciliationTests();
+  console.log('');
+
   console.log('========================================');
-  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (171/171 tests)!');
+  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (183/183 tests)!');
   console.log('========================================');
 }
 

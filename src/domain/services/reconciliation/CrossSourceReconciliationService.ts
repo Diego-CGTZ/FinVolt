@@ -203,7 +203,7 @@ export class CrossSourceReconciliationService {
 
     if (!postedAt && isStatementSource) {
       postedAt = candidate.occurredAt;
-      if (status === 'PENDING' || status === 'CANDIDATE') {
+      if (status === 'PENDING' || status === 'CANDIDATE' || status === 'CONFIRMED' || status === 'MATCHED') {
         status = 'POSTED';
       }
     }
@@ -214,21 +214,71 @@ export class CrossSourceReconciliationService {
       merchant = candidate.merchant;
     }
 
+    // 2.1 Enriquecer descripción o concepto si la transacción no lo tenía
+    let description = transaction.description;
+    if ((!description || description.trim() === '') && candidate.metadata) {
+      const candidateConcept =
+        (candidate.metadata.concept as string) || (candidate.metadata.subject as string);
+      if (candidateConcept && candidateConcept.trim().length > 0) {
+        description = candidateConcept.trim();
+      }
+    }
+
+    // 2.2 Enriquecer metadatos (folio, referencia bancaria de correo)
+    const transactionMetadata = { ...(transaction.metadata || {}) };
+    if (candidate.metadata?.referenceNumber && !transactionMetadata.referenceNumber) {
+      transactionMetadata.referenceNumber = candidate.metadata.referenceNumber;
+    }
+
     // 3. Aumento del score de confianza por validación multi-fuente
     const baseConfidence = transaction.confidenceScore ?? 80;
     // Cada fuente adicional concordante añade puntos de confianza
     const multiSourceBonus = Math.min(10, updatedEvidence.length * 3);
     const enrichedConfidence = Math.min(100, Math.max(baseConfidence, candidate.confidenceScore + multiSourceBonus));
 
+    // Si cuenta con múltiples fuentes corroboradas (ej. NOTIFICATION + EMAIL) y la confianza es >= 90, se promueve a CONFIRMED si no era POSTED
+    if (updatedEvidence.length >= 2 && enrichedConfidence >= 90 && status !== 'POSTED') {
+      status = 'CONFIRMED';
+    }
+
     return {
       ...transaction,
       postedAt,
       merchant,
+      description,
       status,
       confidenceScore: enrichedConfidence,
       sourcesEvidence: updatedEvidence,
+      metadata: Object.keys(transactionMetadata).length > 0 ? transactionMetadata : transaction.metadata,
       updatedAt: new Date(),
     };
+  }
+
+  /**
+   * Reconcilia específicamente un candidato originado por EMAIL frente a transacciones existentes (US-036).
+   */
+  public static reconcileEmailCandidate(
+    candidate: TransactionCandidate,
+    existingTransactions: Transaction[],
+    options?: ReconciliationOptions,
+  ): ReconciliationResult {
+    return this.reconcile(candidate, existingTransactions, options);
+  }
+
+  /**
+   * Determina si la transacción contiene corroboración de correo electrónico (US-036).
+   */
+  public static hasEmailCorroboration(transaction: Transaction): boolean {
+    const list = transaction.sourcesEvidence || [];
+    return list.some((e) => e.source === 'EMAIL');
+  }
+
+  /**
+   * Obtiene la lista de fuentes distintas que corroboran la transacción.
+   */
+  public static getDistinctSources(transaction: Transaction): (TransactionSource | RawEventSource)[] {
+    const list = transaction.sourcesEvidence || [];
+    return Array.from(new Set(list.map((e) => e.source)));
   }
 
   /**
