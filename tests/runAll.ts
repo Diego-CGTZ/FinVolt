@@ -17,6 +17,7 @@ import { runGmailAdapterTests } from './unit/GmailAdapter.test';
 import { runFinancialEmailParserTests } from './unit/FinancialEmailParser.test';
 import { runOutlookAdapterTests } from './unit/OutlookAdapter.test';
 import { runEmailReconciliationTests } from './unit/EmailReconciliation.test';
+import { runBankPdfUploadTests } from './unit/BankPdfUpload.test';
 
 async function main() {
   console.log('========================================');
@@ -99,8 +100,12 @@ async function main() {
   await runEmailReconciliationTests();
   console.log('');
 
+  console.log('--- Suite 20: US-037 Bank PDF Upload ---');
+  await runBankPdfUploadTests();
+  console.log('');
+
   console.log('========================================');
-  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (183/183 tests)!');
+  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (195/195 tests)!');
   console.log('========================================');
 }
 

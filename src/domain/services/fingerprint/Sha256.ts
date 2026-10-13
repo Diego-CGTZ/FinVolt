@@ -65,10 +65,9 @@ function utf8ToBytes(str: string): Uint8Array {
 }
 
 /**
- * Calcula el hash SHA-256 de una cadena de texto y devuelve su representación hexadecimal.
+ * Calcula el hash SHA-256 de un arreglo de bytes Uint8Array y devuelve su representación hexadecimal.
  */
-export function sha256Hex(message: string): string {
-  const bytes = utf8ToBytes(message);
+export function sha256Bytes(bytes: Uint8Array): string {
   const bitLength = bytes.length * 8;
 
   // Pre-procesamiento: padding de bits
@@ -83,7 +82,6 @@ export function sha256Hex(message: string): string {
 
   // Añadir la longitud original en 64 bits en big-endian
   const view = new DataView(padded.buffer);
-  // En JS bitLength puede superar 32 bits para cadenas gigantes, pero aquí manejamos hashes cortos
   const highBits = Math.floor(bitLength / 0x100000000);
   const lowBits = bitLength >>> 0;
   view.setUint32(totalLength - 8, highBits, false);
@@ -142,4 +140,11 @@ export function sha256Hex(message: string): string {
   }
 
   return H.map((val) => val.toString(16).padStart(8, '0')).join('');
+}
+
+/**
+ * Calcula el hash SHA-256 de una cadena de texto y devuelve su representación hexadecimal.
+ */
+export function sha256Hex(message: string): string {
+  return sha256Bytes(utf8ToBytes(message));
 }
