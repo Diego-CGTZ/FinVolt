@@ -22,6 +22,7 @@ import { runPdfTextExtractionTests } from './unit/PdfTextExtraction.test';
 import { runBankStatementParserTests } from './unit/BankStatementParser.test';
 import { runCsvIngestionTests } from './unit/CsvIngestion.test';
 import { runXlsxIngestionTests } from './unit/XlsxIngestion.test';
+import { runManualColumnMappingTests } from './unit/ManualColumnMapping.test';
 
 async function main() {
   console.log('========================================');
@@ -124,8 +125,12 @@ async function main() {
   await runXlsxIngestionTests();
   console.log('');
 
+  console.log('--- Suite 25: US-042 Manual Column Mapping ---');
+  await runManualColumnMappingTests();
+  console.log('');
+
   console.log('========================================');
-  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (243/243 tests)!');
+  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (255/255 tests)!');
   console.log('========================================');
 }
 
