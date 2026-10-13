@@ -22,3 +22,4 @@ export * from './ingestion';
 export * from './parsers';
 export * from './statements';
 export * from './csv';
+export * from './xlsx';
