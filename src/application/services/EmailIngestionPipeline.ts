@@ -14,36 +14,53 @@
 
 import type { RawEvent } from '../../domain/models/RawEvent';
 import type { TransactionCandidate } from '../../domain/models/TransactionCandidate';
+import type { Transaction } from '../../domain/models/Transaction';
 import type { IRawEventRepository } from '../../domain/repositories/IRawEventRepository';
 import type { ITransactionCandidateRepository } from '../../domain/repositories/ITransactionCandidateRepository';
+import type { ITransactionRepository } from '../../domain/repositories/ITransactionRepository';
 import { FinancialEmailParser } from '../../domain/services/parsers/FinancialEmailParser';
 import { ProviderDetector, type DetectedProvider } from '../../domain/services/detection/ProviderDetector';
 import { CandidateFactory } from '../../domain/services/CandidateFactory';
 import { DuplicateDetectorService } from '../../domain/services/duplication/DuplicateDetectorService';
+import { CrossSourceReconciliationService } from '../../domain/services/reconciliation/CrossSourceReconciliationService';
 
 export interface EmailPipelineResult {
   rawEvent: RawEvent;
   candidate: TransactionCandidate | null;
   provider: DetectedProvider;
-  status: 'SUCCESS' | 'IGNORED' | 'FAILED' | 'DUPLICATE';
+  status: 'SUCCESS' | 'IGNORED' | 'FAILED' | 'DUPLICATE' | 'RECONCILED';
+  reconciledTransaction?: Transaction | null;
   message: string;
 }
 
 export interface EmailIngestionPipelineOptions {
   rawEventRepository: IRawEventRepository;
   candidateRepository: ITransactionCandidateRepository;
+  transactionRepository?: ITransactionRepository;
   parser?: FinancialEmailParser;
+  enableReconciliation?: boolean;
 }
 
 export class EmailIngestionPipeline {
   private readonly rawEventRepository: IRawEventRepository;
   private readonly candidateRepository: ITransactionCandidateRepository;
+  private readonly transactionRepository?: ITransactionRepository;
   private readonly parser: FinancialEmailParser;
+  private enableReconciliation: boolean;
 
   constructor(options: EmailIngestionPipelineOptions) {
     this.rawEventRepository = options.rawEventRepository;
     this.candidateRepository = options.candidateRepository;
+    this.transactionRepository = options.transactionRepository;
     this.parser = options.parser || new FinancialEmailParser();
+    this.enableReconciliation = options.enableReconciliation ?? Boolean(options.transactionRepository);
+  }
+
+  /**
+   * Habilita o deshabilita la reconciliación cross-source en tiempo de ejecución.
+   */
+  public setReconciliationEnabled(enabled: boolean): void {
+    this.enableReconciliation = enabled;
   }
 
   /**
@@ -79,7 +96,48 @@ export class EmailIngestionPipeline {
       const providerName = provider.displayName || provider.provider;
       const candidate = CandidateFactory.create(parsed, rawEvent, providerName, userId);
 
-      // 3. Verificación de duplicados a nivel candidato
+      // 3. Reconciliación cross-source con transacciones existentes (US-036)
+      if (this.transactionRepository && this.enableReconciliation) {
+        const existingTransactions = await this.transactionRepository.listTransactions();
+        const reconResult = CrossSourceReconciliationService.reconcileEmailCandidate(
+          candidate,
+          existingTransactions,
+        );
+
+        if (reconResult.isReconciled && reconResult.action === 'MERGED' && reconResult.transaction) {
+          const updatedTx = await this.transactionRepository.updateTransaction(
+            reconResult.transaction.id,
+            {
+              postedAt: reconResult.transaction.postedAt,
+              merchant: reconResult.transaction.merchant,
+              description: reconResult.transaction.description,
+              status: reconResult.transaction.status,
+              confidenceScore: reconResult.transaction.confidenceScore,
+              sourcesEvidence: reconResult.transaction.sourcesEvidence,
+              metadata: reconResult.transaction.metadata,
+            },
+          );
+
+          candidate.status = 'RECONCILED';
+          const savedCandidate = await this.candidateRepository.save(candidate);
+
+          const updatedEvent = await this.rawEventRepository.updateStatus(rawEvent.id, {
+            status: 'PROCESSED',
+            processedAt: new Date(),
+          });
+
+          return {
+            rawEvent: updatedEvent,
+            candidate: savedCandidate,
+            reconciledTransaction: updatedTx,
+            provider,
+            status: 'RECONCILED',
+            message: 'Candidato de correo reconciliado y unificado con transacción existente sin duplicar.',
+          };
+        }
+      }
+
+      // 4. Verificación de duplicados a nivel candidato
       const existingCandidates = await this.candidateRepository.findAll();
       const duplicateMatch = DuplicateDetectorService.detectDuplicate(candidate, {
         candidates: existingCandidates,
@@ -102,10 +160,10 @@ export class EmailIngestionPipeline {
         };
       }
 
-      // 4. Guardar candidato en el repositorio de candidatos
+      // 5. Guardar candidato en el repositorio de candidatos
       const savedCandidate = await this.candidateRepository.save(candidate);
 
-      // 5. Marcar evento crudo como PROCESSED
+      // 6. Marcar evento crudo como PROCESSED
       const updatedEvent = await this.rawEventRepository.updateStatus(rawEvent.id, {
         status: 'PROCESSED',
         processedAt: new Date(),
