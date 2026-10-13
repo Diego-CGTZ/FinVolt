@@ -18,6 +18,7 @@ import { runFinancialEmailParserTests } from './unit/FinancialEmailParser.test';
 import { runOutlookAdapterTests } from './unit/OutlookAdapter.test';
 import { runEmailReconciliationTests } from './unit/EmailReconciliation.test';
 import { runBankPdfUploadTests } from './unit/BankPdfUpload.test';
+import { runPdfTextExtractionTests } from './unit/PdfTextExtraction.test';
 
 async function main() {
   console.log('========================================');
@@ -104,8 +105,12 @@ async function main() {
   await runBankPdfUploadTests();
   console.log('');
 
+  console.log('--- Suite 21: US-038 PDF Text & Table Extraction ---');
+  await runPdfTextExtractionTests();
+  console.log('');
+
   console.log('========================================');
-  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (195/195 tests)!');
+  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (207/207 tests)!');
   console.log('========================================');
 }
 
