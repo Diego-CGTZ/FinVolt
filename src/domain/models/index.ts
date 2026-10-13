@@ -45,3 +45,5 @@ export type {
 export * from './UserCorrection';
 // US-033 — Modelo de integración y sincronización de Gmail
 export * from './Gmail';
+// US-035 — Modelo de integración y sincronización de Outlook
+export * from './Outlook';

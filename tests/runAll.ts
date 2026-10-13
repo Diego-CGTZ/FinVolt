@@ -15,6 +15,7 @@ import { runDeterministicCategorizationTests } from './unit/DeterministicCategor
 import { runUserCorrectionServiceTests } from './unit/UserCorrectionService.test';
 import { runGmailAdapterTests } from './unit/GmailAdapter.test';
 import { runFinancialEmailParserTests } from './unit/FinancialEmailParser.test';
+import { runOutlookAdapterTests } from './unit/OutlookAdapter.test';
 
 async function main() {
   console.log('========================================');
@@ -89,8 +90,12 @@ async function main() {
   await runFinancialEmailParserTests();
   console.log('');
 
+  console.log('--- Suite 18: US-035 Outlook Adapter ---');
+  await runOutlookAdapterTests();
+  console.log('');
+
   console.log('========================================');
-  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (159/159 tests)!');
+  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (171/171 tests)!');
   console.log('========================================');
 }
 
