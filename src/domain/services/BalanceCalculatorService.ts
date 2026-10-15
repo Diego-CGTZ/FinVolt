@@ -1,5 +1,19 @@
 import type { Account, AccountType } from '../models/Account';
 import type { Transaction } from '../models/Transaction';
+import { FinancialStateMachine } from './lifecycle/FinancialStateMachine';
+
+/** Redondea a 2 decimales eliminando residuos de punto flotante (0.1 + 0.2). */
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+/**
+ * Una transaccion solo impacta saldos si su estado es efectivo segun la state machine
+ * (CONFIRMED, PENDING, POSTED, TRANSFER, REFUND). CANDIDATE, MATCHED, DUPLICATE y REJECTED no.
+ */
+function affectsBalance(tx: Transaction): boolean {
+  return FinancialStateMachine.isEffective(tx.status);
+}
 
 export interface AccountBalance {
   accountId: string;
@@ -74,13 +88,23 @@ export function isTransferInflow(tx: Transaction): boolean {
   }
 
   const desc = (tx.description || '').toLowerCase();
-  // Señales de abono / entrada de dinero
-  if (desc.includes('abono a deuda') || desc.includes('transferencia desde') || desc.includes(' a ')) {
+  // Señales explícitas de abono / entrada de dinero
+  if (desc.includes('abono a deuda') || desc.includes('transferencia desde')) {
     return true;
   }
-  // Señales de débito / salida de dinero
-  if (desc.includes('hacia') || desc.includes('pago a tarjeta') || desc.includes('desde')) {
+  // Señales explícitas de débito / salida de dinero (antes del patrón genérico ' a ',
+  // para que 'Transferencia a Ahorros' o 'Pago a tarjeta' no se lean como entradas)
+  if (
+    desc.includes('hacia') ||
+    desc.includes('pago a tarjeta') ||
+    desc.includes('transferencia a ') ||
+    desc.includes('desde')
+  ) {
     return false;
+  }
+  // Patrón genérico heredado
+  if (desc.includes(' a ')) {
+    return true;
   }
 
   // Por defecto, si tiene linkedTransactionId y no tiene descripción clara,
@@ -93,8 +117,8 @@ export function isTransferInflow(tx: Transaction): boolean {
  * Retorna el valor decimal a sumar al balance de la cuenta.
  */
 export function getTransactionDelta(tx: Transaction): number {
-  // Transacciones descartadas o duplicadas no afectan el balance contable
-  if (tx.status === 'REJECTED' || tx.status === 'DUPLICATE') {
+  // Solo los estados efectivos afectan el balance contable
+  if (!affectsBalance(tx)) {
     return 0;
   }
 
@@ -125,36 +149,43 @@ export function calculateAccountBalance(
 ): AccountBalance {
   const accountTxs = transactions.filter((t) => t.accountId === account.id);
 
-  let totalIncome = 0;
-  let totalExpense = 0;
-  let totalTransfersIn = 0;
-  let totalTransfersOut = 0;
-  let netDelta = 0;
+  // Aritmética en minor units (enteros) para evitar errores de punto flotante
+  let totalIncomeMinor = 0;
+  let totalExpenseMinor = 0;
+  let totalTransfersInMinor = 0;
+  let totalTransfersOutMinor = 0;
+  let netDeltaMinor = 0;
 
   for (const tx of accountTxs) {
-    if (tx.status === 'REJECTED' || tx.status === 'DUPLICATE') continue;
+    if (!affectsBalance(tx)) continue;
 
-    const amount = Number(tx.amountMinor) / 100;
+    const amount = Math.round(Number(tx.amountMinor));
 
     if (tx.type === 'INCOME') {
-      totalIncome += amount;
-      netDelta += amount;
+      totalIncomeMinor += amount;
+      netDeltaMinor += amount;
     } else if (tx.type === 'EXPENSE') {
-      totalExpense += amount;
-      netDelta -= amount;
+      totalExpenseMinor += amount;
+      netDeltaMinor -= amount;
     } else if (tx.type === 'TRANSFER') {
       if (isTransferInflow(tx)) {
-        totalTransfersIn += amount;
-        netDelta += amount;
+        totalTransfersInMinor += amount;
+        netDeltaMinor += amount;
       } else {
-        totalTransfersOut += amount;
-        netDelta -= amount;
+        totalTransfersOutMinor += amount;
+        netDeltaMinor -= amount;
       }
     }
   }
 
+  const totalIncome = totalIncomeMinor / 100;
+  const totalExpense = totalExpenseMinor / 100;
+  const totalTransfersIn = totalTransfersInMinor / 100;
+  const totalTransfersOut = totalTransfersOutMinor / 100;
+  const netDelta = netDeltaMinor / 100;
+
   const initial = Number(account.initialBalance) || 0;
-  const current = initial + netDelta;
+  const current = (Math.round(initial * 100) + netDeltaMinor) / 100;
 
   return {
     accountId: account.id,
@@ -235,12 +266,16 @@ export function calculateAggregateBalances(
     totalExpense += accBal.totalExpense;
   }
 
+  for (const key of Object.keys(breakdownByType) as AccountType[]) {
+    breakdownByType[key].totalBalance = round2(breakdownByType[key].totalBalance);
+  }
+
   return {
-    totalNetWorth,
-    totalLiquidAssets,
-    totalCreditDebt,
-    totalIncome,
-    totalExpense,
+    totalNetWorth: round2(totalNetWorth),
+    totalLiquidAssets: round2(totalLiquidAssets),
+    totalCreditDebt: round2(totalCreditDebt),
+    totalIncome: round2(totalIncome),
+    totalExpense: round2(totalExpense),
     balancesByAccount,
     breakdownByType,
   };
@@ -333,28 +368,31 @@ export function calculateLiquidityMetrics(
     }
   }
 
-  const realLiquidity = cash + checking + savings + digitalWallets;
+  const realLiquidity = round2(cash + checking + savings + digitalWallets);
   const creditCardDebt = aggregate.totalCreditDebt;
 
-  // Compromisos pendientes que deducen liquidez futura
-  let pendingCommitments = 0;
+  // Compromisos pendientes que deducen liquidez futura: gastos aun NO reflejados en el balance.
+  // Los PENDING ya estan descontados del saldo (son estado efectivo), por lo que restarlos
+  // de nuevo seria un doble descuento. Solo cuentan CANDIDATE/MATCHED (no efectivos).
+  let pendingCommitmentsMinor = 0;
   for (const tx of transactions) {
-    if (tx.status === 'PENDING' || tx.status === 'CANDIDATE') {
+    if (tx.status === 'CANDIDATE' || tx.status === 'MATCHED') {
       const acc = accounts.find((a) => a.id === tx.accountId);
       if (acc && acc.type !== 'CREDIT_CARD' && tx.type === 'EXPENSE') {
-        pendingCommitments += Number(tx.amountMinor) / 100;
+        pendingCommitmentsMinor += Math.round(Number(tx.amountMinor));
       }
     }
   }
+  const pendingCommitments = pendingCommitmentsMinor / 100;
 
   // Liquidez Proyectada = Liquidez Real - Deuda en Tarjetas - Compromisos Pendientes
-  const projectedLiquidity = realLiquidity - creditCardDebt - pendingCommitments;
+  const projectedLiquidity = round2(realLiquidity - creditCardDebt - pendingCommitments);
 
   // Regla US-016: Transfers NO son gastos ni ingresos
   let actualExpenses = 0;
   let actualIncomes = 0;
   for (const tx of transactions) {
-    if (tx.status === 'REJECTED' || tx.status === 'DUPLICATE') continue;
+    if (!affectsBalance(tx)) continue;
     if (tx.type === 'EXPENSE') {
       actualExpenses += Number(tx.amountMinor) / 100;
     } else if (tx.type === 'INCOME') {
@@ -374,8 +412,8 @@ export function calculateLiquidityMetrics(
       savings,
       digitalWallets,
     },
-    actualExpenses,
-    actualIncomes,
+    actualExpenses: round2(actualExpenses),
+    actualIncomes: round2(actualIncomes),
   };
 }
 
@@ -403,7 +441,7 @@ export function calculateMonthlyFinancialSummary(
   let monthlyTransactionsCount = 0;
 
   for (const tx of transactions) {
-    if (tx.status === 'REJECTED' || tx.status === 'DUPLICATE') continue;
+    if (!affectsBalance(tx)) continue;
 
     const txDate = new Date(tx.occurredAt);
     if (txDate.getFullYear() === currentYear && txDate.getMonth() === currentMonth) {
@@ -419,7 +457,9 @@ export function calculateMonthlyFinancialSummary(
     }
   }
 
-  const monthlyNetSavings = monthlyIncome - monthlyExpense;
+  monthlyIncome = round2(monthlyIncome);
+  monthlyExpense = round2(monthlyExpense);
+  const monthlyNetSavings = round2(monthlyIncome - monthlyExpense);
   const monthlySavingsRate =
     monthlyIncome > 0
       ? Math.max(0, Math.round((monthlyNetSavings / monthlyIncome) * 100))
