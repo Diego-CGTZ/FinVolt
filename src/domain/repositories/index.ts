@@ -39,3 +39,9 @@ export type {
   IFutureObligationRepository,
   FutureObligationFilters,
 } from './IFutureObligationRepository';
+// US-046 — Repositorio de presupuestos
+export type {
+  IBudgetRepository,
+  BudgetFilters,
+} from './IBudgetRepository';
+

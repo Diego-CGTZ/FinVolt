@@ -1,4 +1,5 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+
 import {
   ActivityIndicator,
   Alert,
@@ -13,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../application/state/AuthContext';
 import { useAccounts } from '../../application/state/AccountsContext';
 import { useTransactions } from '../../application/state/TransactionsContext';
+import { useCategories } from '../../application/state/CategoriesContext';
 import { useNotificationIngestion } from '../../application/state/NotificationContext';
 import {
   calculateAggregateBalances,
@@ -25,9 +27,18 @@ import {
   BankPdfUploadCard,
   type SelectedPdfFile,
 } from '../components/statements/BankPdfUploadCard';
+import { ProjectedLiquidityCard } from '../components/liquidity/ProjectedLiquidityCard';
+import { BudgetList } from '../components/budgets/BudgetList';
 import { BankPdfUploadService } from '../../domain/services/statements/BankPdfUploadService';
 import { SupabaseRawEventRepository } from '../../infrastructure/database/SupabaseRawEventRepository';
 import { InMemoryStatementStorageService } from '../../infrastructure/storage/InMemoryStatementStorageService';
+import { defaultFutureObligationRepository } from '../../infrastructure/database/AsyncStorageFutureObligationRepository';
+import { AsyncStorageBudgetRepository } from '../../infrastructure/database/AsyncStorageBudgetRepository';
+import { ManageBudgetsUseCase } from '../../application/useCases/ManageBudgetsUseCase';
+import type { BudgetMonthlySummary } from '../../domain/models/Budget';
+import type { FutureObligation } from '../../domain/models/FutureObligation';
+import type { Category } from '../../domain/models/Category';
+
 
 interface HomeScreenProps {
   onNavigateTab?: (tab: 'ACCOUNTS' | 'TRANSACTIONS') => void;
@@ -47,12 +58,121 @@ export function HomeScreen({ onNavigateTab }: HomeScreenProps) {
   const { user, signOut } = useAuth();
   const { accounts, isLoading: accountsLoading } = useAccounts();
   const { transactions, isLoading: txLoading } = useTransactions();
+
+  const { categories } = useCategories();
   const {
     isPermissionGranted: isNotificationGranted,
     requestPermission: requestNotificationPermission,
     lastCapturedEvent,
     lastCandidate,
   } = useNotificationIngestion();
+
+  const categoriesMap = useMemo(() => {
+    const map: Record<string, Category> = {};
+    for (const c of categories) {
+      map[c.id] = c;
+    }
+    return map;
+  }, [categories]);
+
+  // Obligaciones futuras (US-044 / US-045)
+  const [obligations, setObligations] = useState<FutureObligation[]>([]);
+  useEffect(() => {
+    let isMounted = true;
+    const uid = user?.id || 'demo-user';
+    defaultFutureObligationRepository
+      .findByUserId(uid)
+      .then((list) => {
+        if (isMounted) setObligations(list);
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.id]);
+
+  // Presupuestos mensuales (US-046)
+  const budgetRepo = useMemo(() => new AsyncStorageBudgetRepository(), []);
+  const budgetUseCase = useMemo(
+    () => new ManageBudgetsUseCase(budgetRepo),
+    [budgetRepo]
+  );
+  const [budgetMonth, setBudgetMonth] = useState('2026-10');
+  const [budgetSummary, setBudgetSummary] = useState<BudgetMonthlySummary>({
+    userId: user?.id || 'demo-user',
+    month: '2026-10',
+    budgets: [],
+    totalBudgetedMinor: 0,
+    totalBudgeted: 0,
+    totalPercentage: 0,
+    remainingPercentage: 100,
+    isFullyAllocated: false,
+    currency: 'MXN',
+  });
+
+  useEffect(() => {
+    let isMounted = true;
+    const uid = user?.id || 'demo-user';
+
+    const fetchBudgets = async () => {
+      try {
+        let summary = await budgetUseCase.getBudgetsByMonth(uid, budgetMonth);
+        if (summary.budgets.length === 0) {
+          const catHousingId = categories[0]?.id || 'cat-housing';
+          const catFoodId = categories[1]?.id || 'cat-food';
+          const catSavingsId = categories[2]?.id || 'cat-savings';
+
+          await budgetUseCase
+            .createBudget({
+              userId: uid,
+              categoryId: catHousingId,
+              month: budgetMonth,
+              amountMinor: 800000,
+              percentage: 40.0,
+              notes: 'Vivienda y Renta',
+            })
+            .catch(() => {});
+
+          await budgetUseCase
+            .createBudget({
+              userId: uid,
+              categoryId: catFoodId,
+              month: budgetMonth,
+              amountMinor: 600000,
+              percentage: 30.0,
+              notes: 'Alimentación y Despensa',
+            })
+            .catch(() => {});
+
+          await budgetUseCase
+            .createBudget({
+              userId: uid,
+              categoryId: catSavingsId,
+              month: budgetMonth,
+              amountMinor: 300000,
+              percentage: 15.0,
+              notes: 'Fondo de Ahorro e Inversión',
+            })
+            .catch(() => {});
+
+          summary = await budgetUseCase.getBudgetsByMonth(uid, budgetMonth);
+        }
+        if (isMounted) {
+          setBudgetSummary(summary);
+        }
+      } catch {
+        // Fallback en caso de error
+      }
+    };
+
+    fetchBudgets();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [budgetUseCase, user?.id, budgetMonth, categories]);
+
+
 
 
   const aggregates = useMemo(
@@ -271,11 +391,40 @@ export function HomeScreen({ onNavigateTab }: HomeScreenProps) {
                 >
                   ${liquidity.projectedLiquidity.toFixed(2)}
                 </Text>
-                <Text style={styles.metricCardSub}>Tras saldar deudas de crédito</Text>
               </View>
             </View>
 
+            {/* Liquidez Proyectada Canónica (US-045) */}
+            <ProjectedLiquidityCard
+              accounts={accounts}
+              transactions={transactions}
+              obligations={obligations}
+            />
+
+            {/* Presupuestos Mensuales por Categoría (US-046) */}
+            <BudgetList
+              summary={budgetSummary}
+              categories={categoriesMap}
+              onPrevMonth={() => {
+                const [y, m] = budgetMonth.split('-').map(Number);
+                const prev = new Date(Date.UTC(y, m - 2, 1));
+                const prevStr = `${prev.getUTCFullYear()}-${String(
+                  prev.getUTCMonth() + 1
+                ).padStart(2, '0')}`;
+                setBudgetMonth(prevStr);
+              }}
+              onNextMonth={() => {
+                const [y, m] = budgetMonth.split('-').map(Number);
+                const next = new Date(Date.UTC(y, m, 1));
+                const nextStr = `${next.getUTCFullYear()}-${String(
+                  next.getUTCMonth() + 1
+                ).padStart(2, '0')}`;
+                setBudgetMonth(nextStr);
+              }}
+            />
+
             {/* Métricas del Mes Calendario (US-017) */}
+
             <View style={styles.sectionContainer}>
               <View style={styles.sectionHeaderRow}>
                 <Text style={styles.sectionTitle}>Métricas de {monthly.currentMonthName}</Text>

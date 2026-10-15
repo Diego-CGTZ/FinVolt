@@ -33,3 +33,7 @@ export {
   defaultFutureObligationRepository,
 } from './AsyncStorageFutureObligationRepository';
 export { SupabaseFutureObligationRepository } from './SupabaseFutureObligationRepository';
+// US-046
+export { AsyncStorageBudgetRepository } from './AsyncStorageBudgetRepository';
+export { SupabaseBudgetRepository } from './SupabaseBudgetRepository';
+
