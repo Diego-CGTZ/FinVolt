@@ -25,6 +25,8 @@ import { runXlsxIngestionTests } from './unit/XlsxIngestion.test';
 import { runManualColumnMappingTests } from './unit/ManualColumnMapping.test';
 import { runRecurringTransactionTests } from './unit/RecurringTransactionDetection.test';
 import { runFutureObligationTests } from './unit/FutureObligation.test';
+import { runProjectedLiquidityTests } from './unit/ProjectedLiquidity.test';
+
 
 async function main() {
   console.log('========================================');
@@ -139,9 +141,14 @@ async function main() {
   await runFutureObligationTests();
   console.log('');
 
+  console.log('--- Suite 28: US-045 Projected Liquidity ---');
+  await runProjectedLiquidityTests();
+  console.log('');
+
   console.log('========================================');
-  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (279/279 tests)!');
+  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (291/291 tests)!');
   console.log('========================================');
+
 }
 
 main().catch((err) => {

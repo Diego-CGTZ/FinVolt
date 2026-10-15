@@ -26,3 +26,5 @@ export * from './xlsx';
 export * from './mapping';
 export * from './recurring';
 export * from './obligations';
+export * from './liquidity';
+

@@ -51,3 +51,6 @@ export * from './Outlook';
 export * from './RecurringTransaction';
 // US-044 — Modelo de obligaciones futuras
 export * from './FutureObligation';
+// US-045 — Modelo de liquidez proyectada
+export * from './ProjectedLiquidity';
+
