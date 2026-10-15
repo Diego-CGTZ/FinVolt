@@ -11,5 +11,7 @@ export * from './DetectRecurringTransactionsUseCase';
 export * from './ManageFutureObligationsUseCase';
 export * from './CalculateProjectedLiquidityUseCase';
 export * from './ManageBudgetsUseCase';
+export * from './GetBudgetConsumptionUseCase';
+
 
 
