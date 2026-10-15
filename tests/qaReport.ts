@@ -43,7 +43,9 @@ const SUITES: SuiteDef[] = [
   { story: 'US-042', file: 'ManualColumnMapping', fn: 'runManualColumnMappingTests' },
   { story: 'US-043', file: 'RecurringTransactionDetection', fn: 'runRecurringTransactionTests' },
   { story: 'US-044', file: 'FutureObligation', fn: 'runFutureObligationTests' },
+  { story: 'US-045', file: 'ProjectedLiquidity', fn: 'runProjectedLiquidityTests' },
 ];
+
 
 // Suites QA adicionales descubiertas automaticamente: tests/unit/qa/<Story>_*.test.ts exportan runQaTests
 const qaDir = join(__dirname, 'unit', 'qa');

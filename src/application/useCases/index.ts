@@ -9,3 +9,5 @@ export * from './GetBalancesUseCase';
 export * from './GetLiquidityUseCase';
 export * from './DetectRecurringTransactionsUseCase';
 export * from './ManageFutureObligationsUseCase';
+export * from './CalculateProjectedLiquidityUseCase';
+
