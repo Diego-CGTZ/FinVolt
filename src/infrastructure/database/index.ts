@@ -22,3 +22,14 @@ export { SupabaseMerchantRuleRepository } from './SupabaseMerchantRuleRepository
 export { InMemoryUserCorrectionRepository } from './InMemoryUserCorrectionRepository';
 // US-018 / US-033
 export { InMemoryRawEventRepository } from './InMemoryRawEventRepository';
+// US-043
+export {
+  AsyncStorageRecurringTransactionRepository,
+  defaultRecurringTransactionRepository,
+} from './AsyncStorageRecurringTransactionRepository';
+// US-044
+export {
+  AsyncStorageFutureObligationRepository,
+  defaultFutureObligationRepository,
+} from './AsyncStorageFutureObligationRepository';
+export { SupabaseFutureObligationRepository } from './SupabaseFutureObligationRepository';

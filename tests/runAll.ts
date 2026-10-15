@@ -24,6 +24,7 @@ import { runCsvIngestionTests } from './unit/CsvIngestion.test';
 import { runXlsxIngestionTests } from './unit/XlsxIngestion.test';
 import { runManualColumnMappingTests } from './unit/ManualColumnMapping.test';
 import { runRecurringTransactionTests } from './unit/RecurringTransactionDetection.test';
+import { runFutureObligationTests } from './unit/FutureObligation.test';
 
 async function main() {
   console.log('========================================');
@@ -134,8 +135,12 @@ async function main() {
   await runRecurringTransactionTests();
   console.log('');
 
+  console.log('--- Suite 27: US-044 Future Obligations Model ---');
+  await runFutureObligationTests();
+  console.log('');
+
   console.log('========================================');
-  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (267/267 tests)!');
+  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (279/279 tests)!');
   console.log('========================================');
 }
 

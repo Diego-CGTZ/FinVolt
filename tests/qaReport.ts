@@ -42,6 +42,7 @@ const SUITES: SuiteDef[] = [
   { story: 'US-041', file: 'XlsxIngestion', fn: 'runXlsxIngestionTests' },
   { story: 'US-042', file: 'ManualColumnMapping', fn: 'runManualColumnMappingTests' },
   { story: 'US-043', file: 'RecurringTransactionDetection', fn: 'runRecurringTransactionTests' },
+  { story: 'US-044', file: 'FutureObligation', fn: 'runFutureObligationTests' },
 ];
 
 // Suites QA adicionales descubiertas automaticamente: tests/unit/qa/<Story>_*.test.ts exportan runQaTests

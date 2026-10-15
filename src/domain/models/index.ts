@@ -49,3 +49,5 @@ export * from './Gmail';
 export * from './Outlook';
 // US-043 — Modelo de transacciones recurrentes
 export * from './RecurringTransaction';
+// US-044 — Modelo de obligaciones futuras
+export * from './FutureObligation';
