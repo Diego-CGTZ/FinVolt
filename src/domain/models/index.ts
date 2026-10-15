@@ -55,5 +55,8 @@ export * from './FutureObligation';
 export * from './ProjectedLiquidity';
 // US-046 — Modelo de presupuestos
 export * from './Budget';
+// US-047 — Consumo de presupuestos
+export * from './BudgetConsumption';
+
 
 

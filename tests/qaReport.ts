@@ -45,7 +45,9 @@ const SUITES: SuiteDef[] = [
   { story: 'US-044', file: 'FutureObligation', fn: 'runFutureObligationTests' },
   { story: 'US-045', file: 'ProjectedLiquidity', fn: 'runProjectedLiquidityTests' },
   { story: 'US-046', file: 'BudgetModel', fn: 'runBudgetModelTests' },
+  { story: 'US-047', file: 'BudgetConsumption', fn: 'runBudgetConsumptionTests' },
 ];
+
 
 
 

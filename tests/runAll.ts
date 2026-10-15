@@ -27,6 +27,8 @@ import { runRecurringTransactionTests } from './unit/RecurringTransactionDetecti
 import { runFutureObligationTests } from './unit/FutureObligation.test';
 import { runProjectedLiquidityTests } from './unit/ProjectedLiquidity.test';
 import { runBudgetModelTests } from './unit/BudgetModel.test';
+import { runBudgetConsumptionTests } from './unit/BudgetConsumption.test';
+
 
 
 
@@ -151,9 +153,14 @@ async function main() {
   await runBudgetModelTests();
   console.log('');
 
+  console.log('--- Suite 30: US-047 Budget Consumption ---');
+  await runBudgetConsumptionTests();
+  console.log('');
+
   console.log('========================================');
-  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (303/303 tests)!');
+  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (315/315 tests)!');
   console.log('========================================');
+
 
 
 }
