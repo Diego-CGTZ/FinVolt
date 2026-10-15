@@ -34,3 +34,8 @@ export type {
   IRecurringTransactionRepository,
   RecurringTransactionFilters,
 } from './IRecurringTransactionRepository';
+// US-044 — Repositorio de obligaciones futuras
+export type {
+  IFutureObligationRepository,
+  FutureObligationFilters,
+} from './IFutureObligationRepository';
