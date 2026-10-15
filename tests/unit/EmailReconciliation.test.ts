@@ -680,6 +680,7 @@ export async function runEmailReconciliationTests() {
     // 2. Simulamos la llegada de un RawEvent de correo para Oxxo por $250.00
     const rawEmail = await rawRepo.save({
       source: 'EMAIL',
+      receivedAt: baseDate,
       sourceId: 'msg_gmail_oxxo_1',
       rawText: 'BBVA informa: Compra por $250.00 en OXXO realizada con éxito.',
       payload: {
