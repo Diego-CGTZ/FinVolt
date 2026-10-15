@@ -29,6 +29,8 @@ import {
 } from '../components/statements/BankPdfUploadCard';
 import { ProjectedLiquidityCard } from '../components/liquidity/ProjectedLiquidityCard';
 import { BudgetList } from '../components/budgets/BudgetList';
+import { BudgetConsumptionCard } from '../components/budgets/BudgetConsumptionCard';
+import { BudgetConsumptionCalculator } from '../../domain/services/budgets/BudgetConsumptionCalculator';
 import { BankPdfUploadService } from '../../domain/services/statements/BankPdfUploadService';
 import { SupabaseRawEventRepository } from '../../infrastructure/database/SupabaseRawEventRepository';
 import { InMemoryStatementStorageService } from '../../infrastructure/storage/InMemoryStatementStorageService';
@@ -41,7 +43,7 @@ import type { Category } from '../../domain/models/Category';
 
 
 interface HomeScreenProps {
-  onNavigateTab?: (tab: 'ACCOUNTS' | 'TRANSACTIONS') => void;
+  onNavigateTab?: (tab: 'ACCOUNTS' | 'TRANSACTIONS' | 'BUDGETS') => void;
 }
 
 /**
@@ -174,6 +176,16 @@ export function HomeScreen({ onNavigateTab }: HomeScreenProps) {
 
 
 
+
+  const budgetConsumptionSummary = useMemo(() => {
+    const uid = user?.id || 'demo-user';
+    return BudgetConsumptionCalculator.calculate({
+      budgets: budgetSummary.budgets,
+      transactions,
+      month: budgetMonth,
+      userId: uid,
+    });
+  }, [budgetSummary.budgets, transactions, budgetMonth, user?.id]);
 
   const aggregates = useMemo(
     () => calculateAggregateBalances(accounts, transactions),
@@ -399,6 +411,30 @@ export function HomeScreen({ onNavigateTab }: HomeScreenProps) {
               accounts={accounts}
               transactions={transactions}
               obligations={obligations}
+            />
+
+            {/* Consumo de Presupuestos y Alertas (US-047 / US-048) */}
+            <BudgetConsumptionCard
+              summary={budgetConsumptionSummary}
+              onPrevMonth={() => {
+                const [y, m] = budgetMonth.split('-').map(Number);
+                const prev = new Date(Date.UTC(y, m - 2, 1));
+                const prevStr = `${prev.getUTCFullYear()}-${String(
+                  prev.getUTCMonth() + 1
+                ).padStart(2, '0')}`;
+                setBudgetMonth(prevStr);
+              }}
+              onNextMonth={() => {
+                const [y, m] = budgetMonth.split('-').map(Number);
+                const next = new Date(Date.UTC(y, m, 1));
+                const nextStr = `${next.getUTCFullYear()}-${String(
+                  next.getUTCMonth() + 1
+                ).padStart(2, '0')}`;
+                setBudgetMonth(nextStr);
+              }}
+              onCategoryPress={() => {
+                onNavigateTab?.('BUDGETS');
+              }}
             />
 
             {/* Presupuestos Mensuales por Categoría (US-046) */}

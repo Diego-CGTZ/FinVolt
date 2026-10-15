@@ -13,8 +13,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { TouchableOpacity, Text } from 'react-native';
 
+import { BudgetDashboardScreen } from './src/presentation/screens/BudgetDashboardScreen';
+
 function MainTabs() {
-  const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'ACCOUNTS' | 'TRANSACTIONS'>('DASHBOARD');
+  const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'ACCOUNTS' | 'TRANSACTIONS' | 'BUDGETS'>('DASHBOARD');
 
   return (
     <View style={{ flex: 1, backgroundColor: '#0f172a' }}>
@@ -23,8 +25,10 @@ function MainTabs() {
           <HomeScreen onNavigateTab={(tab) => setActiveTab(tab)} />
         ) : activeTab === 'ACCOUNTS' ? (
           <AccountsScreen />
-        ) : (
+        ) : activeTab === 'TRANSACTIONS' ? (
           <AddExpenseScreen />
+        ) : (
+          <BudgetDashboardScreen onBack={() => setActiveTab('DASHBOARD')} />
         )}
       </View>
       <View style={styles.tabBar}>
@@ -70,6 +74,21 @@ function MainTabs() {
           />
           <Text style={[styles.tabText, activeTab === 'TRANSACTIONS' && styles.tabTextActive]}>
             Movimientos
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tabButton, activeTab === 'BUDGETS' && styles.tabButtonActive]}
+          onPress={() => setActiveTab('BUDGETS')}
+        >
+          <Ionicons
+            name={activeTab === 'BUDGETS' ? 'stats-chart' : 'stats-chart-outline'}
+            size={22}
+            color={activeTab === 'BUDGETS' ? '#6366f1' : '#94a3b8'}
+            style={styles.tabIcon}
+          />
+          <Text style={[styles.tabText, activeTab === 'BUDGETS' && styles.tabTextActive]}>
+            Presupuestos
           </Text>
         </TouchableOpacity>
       </View>

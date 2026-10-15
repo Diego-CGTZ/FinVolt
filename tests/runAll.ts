@@ -28,6 +28,7 @@ import { runFutureObligationTests } from './unit/FutureObligation.test';
 import { runProjectedLiquidityTests } from './unit/ProjectedLiquidity.test';
 import { runBudgetModelTests } from './unit/BudgetModel.test';
 import { runBudgetConsumptionTests } from './unit/BudgetConsumption.test';
+import { runBudgetDashboardTests } from './unit/BudgetDashboard.test';
 
 
 
@@ -157,8 +158,12 @@ async function main() {
   await runBudgetConsumptionTests();
   console.log('');
 
+  console.log('--- Suite 31: US-048 Budget Dashboard ---');
+  await runBudgetDashboardTests();
+  console.log('');
+
   console.log('========================================');
-  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (315/315 tests)!');
+  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (327/327 tests)!');
   console.log('========================================');
 
 
