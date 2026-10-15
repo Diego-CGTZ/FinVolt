@@ -93,9 +93,51 @@ export class CsvStatementParser implements ICsvStatementParser {
    */
   private static parseAmount(value?: string): number | null {
     if (!value || typeof value !== 'string') return null;
-    const clean = value.replace(/[$,\s]/g, '');
+    let clean = value.replace(/[^\d.,()\-+]/g, '');
+    if (!clean) return null;
+
+    // Notacion contable: (1,234.50) significa negativo
+    let negative = false;
+    if (/^\(.*\)$/.test(clean)) {
+      negative = true;
+      clean = clean.slice(1, -1);
+    }
+    // Signo menos al final (1,234.50-) o al inicio
+    if (clean.endsWith('-')) {
+      negative = true;
+      clean = clean.slice(0, -1);
+    }
+    clean = clean.replace(/[()]/g, '');
+    if (clean.startsWith('-')) {
+      negative = true;
+      clean = clean.slice(1);
+    }
+    clean = clean.replace(/^\+/, '');
+
+    const lastComma = clean.lastIndexOf(',');
+    const lastDot = clean.lastIndexOf('.');
+    if (lastComma !== -1 && lastDot !== -1) {
+      // Ambos separadores: el ultimo es el decimal (1.234,56 europeo / 1,234.56 estandar)
+      if (lastComma > lastDot) {
+        clean = clean.replace(/\./g, '').replace(',', '.');
+      } else {
+        clean = clean.replace(/,/g, '');
+      }
+    } else if (lastComma !== -1) {
+      // Solo comas: "12,50" decimal; "1,234" o "1,234,567" miles
+      const decimals = clean.length - lastComma - 1;
+      const commaCount = clean.split(',').length - 1;
+      if (commaCount === 1 && decimals >= 1 && decimals <= 2) {
+        clean = clean.replace(',', '.');
+      } else {
+        clean = clean.replace(/,/g, '');
+      }
+    }
+
+    if (!/^\d*\.?\d+$|^\d+\.$/.test(clean)) return null;
     const num = parseFloat(clean);
-    return isNaN(num) ? null : num;
+    if (isNaN(num)) return null;
+    return negative ? -num : num;
   }
 
   /**
