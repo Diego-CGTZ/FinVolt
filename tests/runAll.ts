@@ -23,6 +23,7 @@ import { runBankStatementParserTests } from './unit/BankStatementParser.test';
 import { runCsvIngestionTests } from './unit/CsvIngestion.test';
 import { runXlsxIngestionTests } from './unit/XlsxIngestion.test';
 import { runManualColumnMappingTests } from './unit/ManualColumnMapping.test';
+import { runRecurringTransactionTests } from './unit/RecurringTransactionDetection.test';
 
 async function main() {
   console.log('========================================');
@@ -129,8 +130,12 @@ async function main() {
   await runManualColumnMappingTests();
   console.log('');
 
+  console.log('--- Suite 26: US-043 Recurring Transaction Detection ---');
+  await runRecurringTransactionTests();
+  console.log('');
+
   console.log('========================================');
-  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (255/255 tests)!');
+  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (267/267 tests)!');
   console.log('========================================');
 }
 

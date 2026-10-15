@@ -29,3 +29,8 @@ export type {
 export type { IMerchantRuleRepository, MerchantRuleFilter } from './IMerchantRuleRepository';
 // US-032 — Repositorio de correcciones de usuario
 export type { IUserCorrectionRepository } from './IUserCorrectionRepository';
+// US-043 — Repositorio de transacciones recurrentes
+export type {
+  IRecurringTransactionRepository,
+  RecurringTransactionFilters,
+} from './IRecurringTransactionRepository';

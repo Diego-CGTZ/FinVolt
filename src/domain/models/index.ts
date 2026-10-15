@@ -47,3 +47,5 @@ export * from './UserCorrection';
 export * from './Gmail';
 // US-035 — Modelo de integración y sincronización de Outlook
 export * from './Outlook';
+// US-043 — Modelo de transacciones recurrentes
+export * from './RecurringTransaction';
