@@ -26,6 +26,8 @@ import { runManualColumnMappingTests } from './unit/ManualColumnMapping.test';
 import { runRecurringTransactionTests } from './unit/RecurringTransactionDetection.test';
 import { runFutureObligationTests } from './unit/FutureObligation.test';
 import { runProjectedLiquidityTests } from './unit/ProjectedLiquidity.test';
+import { runBudgetModelTests } from './unit/BudgetModel.test';
+
 
 
 async function main() {
@@ -145,9 +147,14 @@ async function main() {
   await runProjectedLiquidityTests();
   console.log('');
 
+  console.log('--- Suite 29: US-046 Budget Model ---');
+  await runBudgetModelTests();
+  console.log('');
+
   console.log('========================================');
-  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (291/291 tests)!');
+  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (303/303 tests)!');
   console.log('========================================');
+
 
 }
 

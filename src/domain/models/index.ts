@@ -53,4 +53,7 @@ export * from './RecurringTransaction';
 export * from './FutureObligation';
 // US-045 — Modelo de liquidez proyectada
 export * from './ProjectedLiquidity';
+// US-046 — Modelo de presupuestos
+export * from './Budget';
+
 
