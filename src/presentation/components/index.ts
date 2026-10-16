@@ -11,5 +11,6 @@ export * from './recurring';
 export * from './obligations';
 export * from './liquidity';
 export * from './budgets';
+export * from './loans';
 
 

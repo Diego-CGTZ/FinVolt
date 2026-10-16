@@ -44,4 +44,7 @@ export type {
   IBudgetRepository,
   BudgetFilters,
 } from './IBudgetRepository';
+// US-049 — Repositorio de contactos y préstamos
+export type { IContactRepository } from './IContactRepository';
+export type { ILoanRepository, LoanFilters } from './ILoanRepository';
 

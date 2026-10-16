@@ -12,6 +12,7 @@ export * from './ManageFutureObligationsUseCase';
 export * from './CalculateProjectedLiquidityUseCase';
 export * from './ManageBudgetsUseCase';
 export * from './GetBudgetConsumptionUseCase';
+export * from './ManageLoansUseCase';
 
 
 

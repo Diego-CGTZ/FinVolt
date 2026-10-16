@@ -29,6 +29,7 @@ import { runProjectedLiquidityTests } from './unit/ProjectedLiquidity.test';
 import { runBudgetModelTests } from './unit/BudgetModel.test';
 import { runBudgetConsumptionTests } from './unit/BudgetConsumption.test';
 import { runBudgetDashboardTests } from './unit/BudgetDashboard.test';
+import { runLoanModelTests } from './unit/LoanModel.test';
 
 
 
@@ -162,8 +163,12 @@ async function main() {
   await runBudgetDashboardTests();
   console.log('');
 
+  console.log('--- Suite 32: US-049 Loan Model ---');
+  await runLoanModelTests();
+  console.log('');
+
   console.log('========================================');
-  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (327/327 tests)!');
+  console.log('  [PASS] ¡Todas las suites pasaron exitosamente (341/341 tests)!');
   console.log('========================================');
 
 
