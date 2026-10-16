@@ -36,4 +36,10 @@ export { SupabaseFutureObligationRepository } from './SupabaseFutureObligationRe
 // US-046
 export { AsyncStorageBudgetRepository } from './AsyncStorageBudgetRepository';
 export { SupabaseBudgetRepository } from './SupabaseBudgetRepository';
+// US-049
+export { AsyncStorageContactRepository } from './AsyncStorageContactRepository';
+export { AsyncStorageLoanRepository } from './AsyncStorageLoanRepository';
+export { SupabaseLoanRepository } from './SupabaseLoanRepository';
+export { ContactDatabaseMapper } from './mappers/ContactDatabaseMapper';
+export { LoanDatabaseMapper } from './mappers/LoanDatabaseMapper';
 

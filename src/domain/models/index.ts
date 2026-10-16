@@ -57,6 +57,9 @@ export * from './ProjectedLiquidity';
 export * from './Budget';
 // US-047 — Consumo de presupuestos
 export * from './BudgetConsumption';
+// US-049 — Modelo de préstamos y contactos
+export * from './Contact';
+export * from './Loan';
 
 
 
