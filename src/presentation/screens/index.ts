@@ -7,3 +7,5 @@
 export { AuthScreen } from './AuthScreen';
 export { HomeScreen } from './HomeScreen';
 export { AccountsScreen } from './AccountsScreen';
+export { AddExpenseScreen } from './AddExpenseScreen';
+export { BudgetDashboardScreen } from './BudgetDashboardScreen';
